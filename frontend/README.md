@@ -10,6 +10,27 @@ Recommended frontend choice:
 
 Vite is not a replacement for ReactJS. It is only the fast local build tool used to run and package the ReactJS app.
 
+## Day 1 Launch
+
+```bash
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+Day 1 automation validates:
+
+- Browser title.
+- Current URL.
+- Main heading.
+- Navigation landmarks.
+- Screenshot capture.
+
 Recommended first pages:
 
 - `/login`

@@ -23,7 +23,7 @@ The app should not become a large production-style microservice platform. The go
 ## What Is Included
 
 - `backend/`: Current starter API. Development target is NestJS services for POS/retail API and OMS.
-- `frontend/`: ReactJS UI placeholder. Development target is ReactJS with Vite tooling.
+- `frontend/`: ReactJS + Vite Day 1 classroom UI shell.
 - `seed-data/`: Users and products for repeatable labs.
 - `openapi.yaml`: API contract for testing and documentation.
 - `wiremock/`: Mock-service starter mappings.
@@ -39,6 +39,22 @@ The app should not become a large production-style microservice platform. The go
 | Admin | `admin@example.com` | `Password@123` |
 | Support | `support@example.com` | `Password@123` |
 | Locked | `locked@example.com` | `Password@123` |
+
+## Day 1 Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the app at:
+
+```bash
+http://localhost:5173
+```
+
+Day 1 uses this ReactJS page for title, URL, heading, screenshot, and accessibility-structure validation.
 
 ## Current Starter Backend
 
