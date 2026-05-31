@@ -1,11 +1,22 @@
 services:
-  retail-api:
+  pos-service:
     build:
       context: ./backend
     environment:
       PORT: 4000
+      POS_SERVICE_PORT: 4000
+      OMS_SERVICE_URL: http://oms-service:4010
     ports:
       - "4000:4000"
+
+  # Planned Week 4 service. This will point to ./services/oms-service once implemented.
+  # oms-service:
+  #   build:
+  #     context: ./services/oms-service
+  #   environment:
+  #     OMS_SERVICE_PORT: 4010
+  #   ports:
+  #     - "4010:4010"
 
   wiremock:
     image: wiremock/wiremock:3.6.0

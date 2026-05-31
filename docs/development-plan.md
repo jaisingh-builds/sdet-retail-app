@@ -19,8 +19,10 @@ The app must be small enough for freshers to understand, but rich enough to supp
 
 ```text
 sdet-retail-app
-├── frontend/              React UI for trainee automation
-├── backend/               Node.js/Express API
+├── frontend/              ReactJS UI for trainee automation
+├── services/
+│   ├── pos-service/       NestJS POS/retail API
+│   └── oms-service/       NestJS order management service
 ├── database/              PostgreSQL schema, migrations, reset scripts
 ├── seed-data/             Users, products, orders, and scenario fixtures
 ├── wiremock/              Payment, shipping, inventory, notification mocks
@@ -33,11 +35,12 @@ sdet-retail-app
 
 | Layer | Choice | Reason |
 | --- | --- | --- |
-| Frontend | React + Vite | Fast local startup and easy classroom debugging. |
-| Backend | Node.js + Express | Simple API surface and familiar JavaScript ecosystem. |
+| Frontend | ReactJS + Vite | ReactJS is the UI library; Vite is the fast local build/dev tool. |
+| Backend services | NestJS | Structured modules, DTOs, validation, Swagger/OpenAPI support, and enterprise-style organization. |
 | Database | PostgreSQL | Enterprise-relevant DB validation practice. |
-| ORM/query | Prisma or Knex | Repeatable schema and seed workflows. |
+| ORM/query | Prisma | Repeatable schema, migrations, and seed workflows. |
 | Mock services | WireMock | Clear request/response mapping for payment and notification labs. |
+| Contracts | Pact | Consumer-driven contract testing for POS-to-OMS integration. |
 | API docs | OpenAPI/Swagger UI | Supports API automation and contract discussion. |
 | Local runtime | Docker Compose | Repeatable setup for trainees. |
 | CI | GitHub Actions | Public repo-friendly automation pipeline. |
@@ -50,7 +53,7 @@ Goal: Convert the starter repo into a dependable base.
 
 Deliverables:
 
-- Confirm repo scripts for backend start, frontend start, tests, lint, and Docker Compose.
+- Confirm repo scripts for POS service start, OMS service start, frontend start, tests, lint, and Docker Compose.
 - Add shared environment documentation.
 - Add `.env.example` coverage for all services.
 - Add health checks for API, database, and WireMock.
@@ -62,12 +65,13 @@ Acceptance criteria:
 - `docker compose up` starts all required services.
 - Health endpoints are documented and return predictable responses.
 
-### Milestone 1: Backend Core API
+### Milestone 1: POS/Retail Service Core API
 
-Goal: Implement a proper API with persistent data and resettable state.
+Goal: Implement a proper POS/retail API with persistent data and resettable state.
 
 Deliverables:
 
+- NestJS POS service scaffold.
 - PostgreSQL integration.
 - Database schema for users, products, carts, orders, order items, and profile data.
 - Migration and seed scripts.
@@ -98,9 +102,34 @@ Deliverables:
 Acceptance criteria:
 
 - APIs match `openapi.yaml`.
+- POS service exposes Swagger/OpenAPI documentation.
 - Seed data can be reset with one command.
 - Customer, admin, support, locked, and invalid-user scenarios are covered.
 - API responses are stable enough for training assertions.
+
+### Milestone 1B: OMS Microservice Slice
+
+Goal: Add the microservice boundary required for Week 4 contract-testing labs without turning the whole app into a heavy distributed system.
+
+Deliverables:
+
+- NestJS OMS service scaffold.
+- OMS endpoints:
+  - `POST /oms/orders`
+  - `GET /oms/orders/{id}`
+  - `GET /oms/orders`
+- POS checkout flow calls OMS to create orders.
+- Pact consumer tests for POS expectations.
+- Pact provider verification for OMS.
+- Local Pact broker option through Docker Compose.
+- Breaking-change demo endpoint or branch note.
+
+Acceptance criteria:
+
+- POS-to-OMS interaction can be tested with Pact.
+- Contract verification can fail on an intentional breaking change.
+- Week 4 CI contract gate can be demonstrated locally or in CI.
+- The UI flow remains simple for Week 1-3 learners.
 
 ### Milestone 2: Frontend Core UI
 
@@ -135,7 +164,7 @@ Acceptance criteria:
 - The UI works consistently in Chromium and Chrome.
 - Login, product search, cart, checkout, order, profile, and admin flows are ready for automation.
 
-### Milestone 3: Mock Services
+### Milestone 3: Mock Services And Service Virtualisation
 
 Goal: Add downstream service behavior for mocking and contract-testing labs.
 
@@ -146,7 +175,7 @@ Deliverables:
 - WireMock mapping for payment timeout.
 - WireMock mapping for shipping estimate.
 - WireMock mapping for notification accepted/failure.
-- Backend integration points for payment, shipping, and notification mocks.
+- POS and OMS integration points for payment, inventory, shipping, and notification mocks.
 - Trainer notes explaining how to swap mappings during class.
 
 Acceptance criteria:
@@ -183,7 +212,7 @@ Goal: Make the app useful for API automation and contract testing.
 
 Deliverables:
 
-- Complete `openapi.yaml`.
+- Complete POS and OMS OpenAPI specs.
 - Swagger UI route or documented OpenAPI viewer flow.
 - Example API workflow collection in docs.
 - JSON schema examples for products, cart, orders, and users.
@@ -192,7 +221,7 @@ Deliverables:
 
 Acceptance criteria:
 
-- OpenAPI spec matches implemented backend routes.
+- OpenAPI specs match implemented POS and OMS routes.
 - API test repo can use the spec for schema and endpoint references.
 - Trainees can execute a full auth -> product -> cart -> order chain.
 
@@ -218,27 +247,31 @@ Acceptance criteria:
 ## Suggested Build Order
 
 1. Add root workspace scripts and setup docs.
-2. Add database schema, migrations, and seed/reset commands.
-3. Replace in-memory backend data with database-backed services.
-4. Complete OpenAPI spec for the backend.
-5. Build React app shell and login flow.
-6. Build product, cart, checkout, order, profile, and admin pages.
-7. Integrate WireMock payment and notification flows.
-8. Add defect flags with trainer notes.
-9. Add CI and Docker Compose validation.
-10. Freeze a classroom release tag.
+2. Scaffold ReactJS + Vite frontend.
+3. Scaffold NestJS POS service.
+4. Add database schema, migrations, and seed/reset commands.
+5. Replace in-memory starter data with database-backed POS services.
+6. Scaffold NestJS OMS service.
+7. Add POS-to-OMS order creation and Pact contracts.
+8. Complete OpenAPI specs for POS and OMS.
+9. Build React app shell and login flow.
+10. Build product, cart, checkout, order, profile, and admin pages.
+11. Integrate WireMock payment, inventory, shipping, and notification flows.
+12. Add defect flags with trainer notes.
+13. Add CI, Pact verification, and Docker Compose validation.
+14. Freeze a classroom release tag.
 
 ## Route-Level Development Checklist
 
-| Route | Backend Needed | Frontend Needed | Automation Focus |
+| Route | Service Needed | Frontend Needed | Automation Focus |
 | --- | --- | --- | --- |
 | `/login` | Auth login/logout | Login form, locked-user message | Forms, auth, negative testing. |
 | `/home` | Current user | Dashboard cards/nav | Smoke, navigation, roles. |
 | `/products` | Product list with query params | Search/filter/sort/pagination | Locators, waits, data assertions. |
 | `/products/:id` | Product detail | Detail page and add-to-cart | URL params, state transition. |
 | `/cart` | Cart read/update/delete | Cart table and totals | Table assertions, quantity edits. |
-| `/checkout` | Order create, payment mock | Checkout form and result states | E2E, mocking, failures. |
-| `/orders` | Order list/detail | History and detail view | API chaining and UI validation. |
+| `/checkout` | POS checkout, OMS order create, payment mock | Checkout form and result states | E2E, mocking, contracts, failures. |
+| `/orders` | OMS order list/detail through POS API | History and detail view | API chaining and UI validation. |
 | `/profile` | Profile read/update | Validation and upload placeholder | Forms and validation. |
 | `/admin/products` | Admin CRUD | Product management table/form | Role-based CRUD testing. |
 | `/admin/orders` | Admin order list | Filterable order table | Admin filters and data checks. |
@@ -330,9 +363,11 @@ Minimum orders:
 ## Environment Variables
 
 ```env
-PORT=4000
+POS_SERVICE_PORT=4000
+OMS_SERVICE_PORT=4010
 DATABASE_URL=postgresql://retail:retail@localhost:5432/sdet_retail
 JWT_SECRET=classroom-secret
+OMS_SERVICE_URL=http://localhost:4010
 PAYMENT_SERVICE_URL=http://localhost:8089
 NOTIFICATION_SERVICE_URL=http://localhost:8089
 BUG_SLOW_PRODUCTS_API=false
@@ -350,6 +385,7 @@ BUG_BROKEN_ADMIN_FILTER=false
 | `docs/setup-guide.md` | Local setup for trainers and students. |
 | `docs/trainer-guide.md` | Day-wise trainer notes and demo switches. |
 | `docs/api-workflows.md` | API chaining examples for Week 2. |
+| `docs/contract-testing.md` | POS-to-OMS Pact and CI contract gate guide. |
 | `docs/defect-labs.md` | Seeded defect scenarios and evidence guide. |
 | `docs/mock-services.md` | WireMock payment/notification guide. |
 | `docs/capstone-brief.md` | Final project instructions and evaluation criteria. |
@@ -359,17 +395,18 @@ BUG_BROKEN_ADMIN_FILTER=false
 
 | Release | Scope |
 | --- | --- |
-| `v0.1-classroom-api` | Backend API, OpenAPI, seed/reset, Docker database. |
-| `v0.2-classroom-ui` | Core React UI for customer flows. |
-| `v0.3-admin-mocks` | Admin pages and WireMock service integration. |
-| `v0.4-defect-labs` | Seeded defect flags and trainer notes. |
+| `v0.1-classroom-api` | NestJS POS API, OpenAPI, seed/reset, Docker database. |
+| `v0.2-classroom-ui` | Core ReactJS UI for customer flows. |
+| `v0.3-oms-contracts` | OMS service, POS-to-OMS Pact contracts, and CI contract gate. |
+| `v0.4-admin-mocks` | Admin pages and WireMock service integration. |
+| `v0.5-defect-labs` | Seeded defect flags and trainer notes. |
 | `v1.0-ust-sdet-training` | Full classroom-ready app with CI, docs, and capstone support. |
 
 ## Risks And Mitigations
 
 | Risk | Mitigation |
 | --- | --- |
-| App becomes too complex for freshers | Keep domain small and hide backend complexity behind docs. |
+| App becomes too complex for freshers | Keep only one real microservice boundary in v1: POS to OMS. |
 | Local setup fails on trainee machines | Provide Docker Compose, npm fallback, and troubleshooting notes. |
 | Random defects make classes unstable | Keep all seeded bugs off by default and flag-controlled. |
 | UI changes break automation repos | Use semantic UI contracts and stable test IDs only where necessary. |
@@ -377,12 +414,13 @@ BUG_BROKEN_ADMIN_FILTER=false
 
 ## Done Criteria For Classroom Use
 
-- `docker compose up` starts frontend, backend, database, and WireMock.
+- `docker compose up` starts frontend, POS service, OMS service, database, and WireMock.
 - Seed/reset command restores known data.
 - Customer and admin credentials work.
 - Core UI workflows are automatable through Playwright and Selenium.
 - Core API workflows are automatable through API tests.
 - Payment success and failure can be mocked.
+- POS-to-OMS Pact contract can be verified.
 - Defect flags are documented and default to off.
 - OpenAPI spec matches implementation.
 - GitHub Actions validates the app.

@@ -10,7 +10,7 @@ The main application is named **SDET Retail Automation Lab**. It gives trainees 
 
 | Repository | Purpose |
 | --- | --- |
-| `sdet-retail-app` | Main starter application with frontend, backend, seed data, OpenAPI contract, Docker Compose, and classroom notes. |
+| `sdet-retail-app` | Main starter application with ReactJS frontend, POS/retail API, OMS service, seed data, OpenAPI contract, Docker Compose, and classroom notes. |
 | `sdet-playwright-ts` | Playwright TypeScript UI automation framework for Week 1 and later framework-maturity topics. |
 | `sdet-selenium-java` | Selenium Java framework for Week 3 using the same retail workflows. |
 | `sdet-api-contract-tests` | API, WireMock, and contract-test starter workspace for Weeks 2 and 4. |
@@ -25,8 +25,37 @@ The controlled app gives the trainer:
 - Known credentials and resettable seed data.
 - APIs with an OpenAPI contract.
 - Mockable payment and notification services.
+- A focused POS-to-OMS microservice contract slice for Week 4 and Week 7.
 - Intentional defects controlled by feature flags.
 - Reliable CI, reports, logs, screenshots, traces, and debugging exercises.
+
+## Architecture Direction
+
+Use a hybrid training architecture:
+
+```text
+ReactJS frontend
+  |
+POS / retail API service
+  |
+  |-- PostgreSQL
+  |-- OMS service
+  |-- WireMock external services
+```
+
+The course planner includes microservices and contract testing. To satisfy that without overloading freshers, the app should include one real microservice boundary: POS/retail API to OMS. Payment, inventory, shipping, and notification should be virtualised through WireMock.
+
+Target stack:
+
+| Layer | Choice |
+| --- | --- |
+| Frontend | ReactJS with Vite tooling |
+| Backend services | NestJS |
+| Database | PostgreSQL |
+| ORM | Prisma |
+| Service virtualisation | WireMock |
+| Consumer-driven contracts | Pact |
+| Runtime | Docker Compose |
 
 ## Application Scope
 
@@ -123,11 +152,12 @@ Outcomes:
 
 ### Week 4: Mocking And Contract Testing
 
-Use checkout, payment mock, notification mock, WireMock, and Pact-style examples.
+Use checkout, POS-to-OMS integration, payment mock, notification mock, WireMock, and Pact examples.
 
 Outcomes:
 
 - Replace downstream services with mocks.
+- Validate POS-to-OMS consumer-driven contracts.
 - Test payment failures and delays.
 - Understand consumer-provider contracts.
 - Validate API expectations before integration.
@@ -192,6 +222,7 @@ Optional extensions:
 ## Definition Of Done
 
 - Application starts locally using Docker Compose or npm scripts.
+- POS/retail API and OMS service are available for contract testing.
 - Seed users and products are documented.
 - OpenAPI spec is available in the app repository.
 - Each test repository has a working starter test and README.

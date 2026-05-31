@@ -2,16 +2,34 @@
 
 Starter application for the UST Global 42-day SDET training program.
 
-This repo is the controlled classroom app used for UI automation, API automation, mocking, debugging, CI, and capstone work.
+This repo is the controlled classroom app used for UI automation, API automation, database validation, microservices contract testing, mocking, debugging, CI, and capstone work.
+
+## Target Architecture
+
+The training app will use a classroom-friendly microservices slice:
+
+```text
+ReactJS frontend
+  |
+POS / retail API service
+  |
+  |-- PostgreSQL
+  |-- OMS service
+  |-- WireMock: payment, inventory, shipping, notification
+```
+
+The app should not become a large production-style microservice platform. The goal is to support the Week 4 and Week 7 planner outcomes: service virtualisation, POS-to-OMS Pact contracts, CI contract gates, resilience testing, and integrated capstone validation.
 
 ## What Is Included
 
-- `backend/`: Node.js and Express starter API.
-- `frontend/`: React placeholder structure for the classroom UI.
+- `backend/`: Current starter API. Development target is NestJS services for POS/retail API and OMS.
+- `frontend/`: ReactJS UI placeholder. Development target is ReactJS with Vite tooling.
 - `seed-data/`: Users and products for repeatable labs.
 - `openapi.yaml`: API contract for testing and documentation.
 - `wiremock/`: Mock-service starter mappings.
 - `docker-compose.yml`: Local service orchestration starter.
+- `docs/development-plan.md`: Development roadmap for the full classroom app.
+- `docs/architecture-decision.md`: Architecture decisions for ReactJS, NestJS, PostgreSQL, microservices, WireMock, and Pact.
 
 ## Seed Credentials
 
@@ -22,7 +40,7 @@ This repo is the controlled classroom app used for UI automation, API automation
 | Support | `support@example.com` | `Password@123` |
 | Locked | `locked@example.com` | `Password@123` |
 
-## Local Backend
+## Current Starter Backend
 
 ```bash
 cd backend
@@ -35,6 +53,8 @@ Backend health check:
 ```bash
 curl http://localhost:4000/api/health
 ```
+
+This starter API is intentionally small. It exists so the automation repos have a runnable target immediately. The planned build will evolve this into NestJS-based POS/retail and OMS services.
 
 ## Feature Flags
 
