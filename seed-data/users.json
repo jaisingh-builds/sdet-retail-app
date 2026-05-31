@@ -1,0 +1,7 @@
+[
+  { "email": "customer@example.com", "password": "Password@123", "role": "customer", "locked": false },
+  { "email": "admin@example.com", "password": "Password@123", "role": "admin", "locked": false },
+  { "email": "support@example.com", "password": "Password@123", "role": "support", "locked": false },
+  { "email": "locked@example.com", "password": "Password@123", "role": "customer", "locked": true },
+  { "email": "invalid@example.com", "password": "Password@123", "role": "customer", "locked": false }
+]

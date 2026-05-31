@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/payments/authorize"
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "status": "APPROVED",
+      "transactionId": "demo-payment-1001"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

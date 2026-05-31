@@ -1,0 +1,107 @@
+openapi: 3.0.3
+info:
+  title: SDET Retail Automation Lab API
+  version: 0.1.0
+servers:
+  - url: http://localhost:4000
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service status
+  /api/auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login succeeded
+        "401":
+          description: Invalid credentials
+        "423":
+          description: Account locked
+  /api/products:
+    get:
+      summary: List products
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product list
+  /api/products/{id}:
+    get:
+      summary: Get product by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product detail
+        "404":
+          description: Product not found
+  /api/cart/items:
+    post:
+      summary: Add cart item
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Cart item added
+  /api/cart:
+    get:
+      summary: Get cart
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Cart state
+  /api/orders:
+    post:
+      summary: Create order
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Order created
+  /api/orders/{id}:
+    get:
+      summary: Get order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order detail
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

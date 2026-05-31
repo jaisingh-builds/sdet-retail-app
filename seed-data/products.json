@@ -1,0 +1,6 @@
+[
+  { "id": 101, "name": "Wireless Mouse", "category": "Accessories", "price": 799, "stock": 25 },
+  { "id": 102, "name": "USB-C Keyboard", "category": "Accessories", "price": 1499, "stock": 12 },
+  { "id": 103, "name": "Noise Cancelling Headset", "category": "Audio", "price": 3499, "stock": 8 },
+  { "id": 104, "name": "Laptop Stand", "category": "Workspace", "price": 1199, "stock": 15 }
+]
