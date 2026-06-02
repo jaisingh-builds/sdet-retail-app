@@ -13,7 +13,8 @@ const users = [
   { id: 1, email: "customer@example.com", password: "Password@123", role: "customer", locked: false, name: "Customer User" },
   { id: 2, email: "admin@example.com", password: "Password@123", role: "admin", locked: false, name: "Admin User" },
   { id: 3, email: "support@example.com", password: "Password@123", role: "support", locked: false, name: "Support User" },
-  { id: 4, email: "locked@example.com", password: "Password@123", role: "customer", locked: true, name: "Locked User" }
+  { id: 4, email: "locked@example.com", password: "Password@123", role: "customer", locked: true, name: "Locked User" },
+  { id: 5, email: "user@test.com", password: "Secret123", role: "customer", locked: false, name: "Demo User" }
 ];
 
 let products = [
@@ -56,7 +57,7 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "sdet-retail-app" });
 });
 
-app.post("/api/auth/login", (req, res) => {
+function handleLogin(req, res) {
   const { email, password } = req.body;
   const user = users.find((item) => item.email === email);
 
@@ -72,15 +73,21 @@ app.post("/api/auth/login", (req, res) => {
     token: tokenFor(user),
     user: { id: user.id, email: user.email, role: user.role, name: user.name }
   });
-});
+}
+
+app.post("/api/auth/login", handleLogin);
+app.post("/api/login", handleLogin);
 
 app.post("/api/auth/logout", requireAuth, (_req, res) => {
   res.status(204).send();
 });
 
 app.get("/api/products", async (req, res) => {
+  const requestedDelay = Number(req.query.delay || 0);
   if (process.env.BUG_SLOW_PRODUCTS_API === "true") {
     await delay(2500);
+  } else if (requestedDelay > 0) {
+    await delay(Math.min(requestedDelay, 3000));
   }
 
   const search = String(req.query.search || "").toLowerCase();
@@ -159,6 +166,11 @@ app.get("/api/orders/:id", requireAuth, (req, res) => {
 });
 
 app.get("/api/users/me", requireAuth, (req, res) => {
+  res.json({ id: req.user.id, email: req.user.email, role: req.user.role, name: req.user.name });
+});
+
+app.get("/api/profile", requireAuth, async (req, res) => {
+  await delay(500);
   res.json({ id: req.user.id, email: req.user.email, role: req.user.role, name: req.user.name });
 });
 
