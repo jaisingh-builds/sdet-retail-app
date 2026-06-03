@@ -7,10 +7,40 @@ const navItems = [
   { label: "Login", href: "/login", status: "Day 2" },
   { label: "Sync Lab", href: "/sync-lab", status: "Day 3" },
   { label: "Profile", href: "/profile", status: "Day 3" },
-  { label: "Products", href: "/products", status: "Week 1" },
+  { label: "Products", href: "/catalog", status: "Day 4" },
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Orders", href: "/orders", status: "Week 2" }
 ];
+
+const featuredProduct = {
+  name: "Running Shoes",
+  slug: "running-shoes",
+  price: "Rs. 4,499",
+  summary: "Lightweight daily trainers with breathable mesh and steady heel support."
+};
+
+const promoFrameMarkup = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Retail promo signup</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; color: #172033; }
+      form { display: grid; gap: 10px; padding: 14px; }
+      label { display: grid; gap: 6px; font-weight: 700; }
+      input { min-height: 36px; border: 1px solid #8f9bb0; border-radius: 4px; padding: 6px 8px; }
+      button { width: fit-content; min-height: 36px; border: 0; border-radius: 4px; background: #125e6b; color: white; padding: 0 12px; font-weight: 700; }
+      p { margin: 0; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <form aria-label="Promo signup" onsubmit="event.preventDefault(); document.getElementById('promo-status').textContent='Thanks for subscribing';">
+      <label>Email <input name="email" type="email" required /></label>
+      <button type="submit">Subscribe</button>
+      <p id="promo-status" role="status"></p>
+    </form>
+  </body>
+</html>`;
 
 const dayOneChecks = [
   "Validate browser title",
@@ -34,6 +64,7 @@ function App() {
     window.location.pathname === "/" ? "/home" : window.location.pathname
   );
   const [currentUser, setCurrentUser] = useState(readStoredUser);
+  const [cartCount, setCartCount] = useState(0);
 
   const navigate = (path) => {
     window.history.pushState({}, "", path);
@@ -85,6 +116,19 @@ function App() {
           <SyncLabPage />
         ) : currentPath === "/profile" ? (
           <ProfilePage currentUser={currentUser} />
+        ) : currentPath === "/catalog" || currentPath === "/products" ? (
+          <CatalogPage onNavigate={navigate} />
+        ) : currentPath === `/product/${featuredProduct.slug}` ? (
+          <ProductPage
+            onAddToCart={() => {
+              setCartCount(1);
+              navigate("/cart");
+            }}
+          />
+        ) : currentPath === "/cart" ? (
+          <CartPage cartCount={cartCount} onRemove={() => setCartCount(0)} />
+        ) : currentPath === "/size-guide" ? (
+          <SizeGuidePage />
         ) : (
           <HomePage currentUser={currentUser} onLogout={logout} />
         )}
@@ -160,7 +204,7 @@ function HomePage({ currentUser, onLogout }) {
             ) : (
               <a className="button primary" href="/login">Sign in</a>
             )}
-            <a className="button secondary" href="/products">Preview products</a>
+            <a className="button secondary" href="/catalog">Preview products</a>
             <a className="button secondary" href="/sync-lab">Open sync lab</a>
           </div>
         </div>
@@ -204,6 +248,151 @@ function HomePage({ currentUser, onLogout }) {
         </article>
       </section>
     </>
+  );
+}
+
+function CatalogPage({ onNavigate }) {
+  return (
+    <section className="catalog-layout" aria-labelledby="catalog-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Day 4 navigation lab</p>
+        <h1 id="catalog-title">Product Catalog</h1>
+        <p className="lead">
+          Practice page transitions by moving from catalog to product detail and then to cart.
+        </p>
+      </div>
+
+      <article className="product-card">
+        <div>
+          <p className="eyebrow">Featured</p>
+          <h2>{featuredProduct.name}</h2>
+          <p>{featuredProduct.summary}</p>
+          <strong>{featuredProduct.price}</strong>
+        </div>
+        <a
+          className="button primary"
+          href={`/product/${featuredProduct.slug}`}
+          onClick={(event) => {
+            event.preventDefault();
+            onNavigate(`/product/${featuredProduct.slug}`);
+          }}
+        >
+          View details
+        </a>
+      </article>
+    </section>
+  );
+}
+
+function ProductPage({ onAddToCart }) {
+  const [size, setSize] = useState("UK 8");
+
+  return (
+    <section className="product-layout" aria-labelledby="product-title">
+      <div className="product-detail">
+        <p className="eyebrow">Product detail</p>
+        <h1 id="product-title">{featuredProduct.name}</h1>
+        <p className="lead">{featuredProduct.summary}</p>
+        <p className="price">{featuredProduct.price}</p>
+
+        <label className="field" htmlFor="shoe-size">
+          <span>Size</span>
+          <select id="shoe-size" value={size} onChange={(event) => setSize(event.target.value)}>
+            <option>UK 7</option>
+            <option>UK 8</option>
+            <option>UK 9</option>
+            <option>UK 10</option>
+          </select>
+        </label>
+
+        <div className="product-actions">
+          <button className="button primary" type="button" onClick={onAddToCart}>
+            Add to cart
+          </button>
+          <a className="button secondary" href="/size-guide" target="_blank" rel="noreferrer">
+            Size guide
+          </a>
+        </div>
+
+        <p className="inline-status" role="status">
+          Selected size: {size}
+        </p>
+      </div>
+
+      <section className="panel" aria-labelledby="promo-title">
+        <h2 id="promo-title">Promo Signup</h2>
+        <iframe
+          className="promo-frame"
+          title="Promo signup frame"
+          srcDoc={promoFrameMarkup}
+        />
+      </section>
+    </section>
+  );
+}
+
+function CartPage({ cartCount, onRemove }) {
+  const removeItem = () => {
+    if (window.confirm("Remove Running Shoes from cart?")) {
+      onRemove();
+    }
+  };
+
+  return (
+    <section className="cart-layout" aria-labelledby="cart-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Dialog validation lab</p>
+        <h1 id="cart-title">Cart</h1>
+        <p>
+          Cart count: <strong data-testid="cart-count">{cartCount}</strong>
+        </p>
+
+        {cartCount > 0 ? (
+          <div className="cart-row">
+            <span>{featuredProduct.name}</span>
+            <span>{featuredProduct.price}</span>
+            <button className="button secondary" type="button" onClick={removeItem}>
+              Remove
+            </button>
+          </div>
+        ) : (
+          <p role="status">Your cart is empty.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SizeGuidePage() {
+  return (
+    <section className="hero" aria-labelledby="size-guide-title">
+      <div className="hero-copy">
+        <p className="eyebrow">New tab target</p>
+        <h1 id="size-guide-title">Size Guide</h1>
+        <table>
+          <caption>Shoe size conversion</caption>
+          <thead>
+            <tr>
+              <th>UK</th>
+              <th>EU</th>
+              <th>Foot length</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>UK 8</td>
+              <td>EU 42</td>
+              <td>26.5 cm</td>
+            </tr>
+            <tr>
+              <td>UK 9</td>
+              <td>EU 43</td>
+              <td>27.3 cm</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
