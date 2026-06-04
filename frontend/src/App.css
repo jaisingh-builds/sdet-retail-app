@@ -648,6 +648,32 @@ h2 {
   max-width: 980px;
 }
 
+.orders-page {
+  display: grid;
+  gap: 28px;
+}
+
+.orders-summary {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.35fr) minmax(180px, 0.35fr) minmax(220px, 0.5fr);
+  gap: 18px;
+  align-items: end;
+  border: 1px solid #dbe2ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 38px rgba(37, 48, 72, 0.08);
+  padding: 20px;
+}
+
+.orders-summary .field {
+  margin-bottom: 0;
+}
+
+.orders-summary strong {
+  color: #172033;
+  font-size: 1.25rem;
+}
+
 .cart-items {
   display: grid;
   gap: 12px;
@@ -695,6 +721,14 @@ th {
   text-transform: uppercase;
 }
 
+.table-note {
+  display: block;
+  margin-top: 4px;
+  color: #66748a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 tr:last-child td {
   border-bottom: 0;
 }
@@ -732,6 +766,7 @@ tr:last-child td {
   .sync-layout,
   .catalog-page,
   .catalog-filters,
+  .orders-summary,
   .product-layout {
     grid-template-columns: 1fr;
   }

@@ -87,6 +87,36 @@ const products = [
   }
 ];
 
+const orders = [
+  {
+    id: "ORD-1007",
+    placedOn: "2026-06-03",
+    status: "Ready for dispatch",
+    payment: "Paid",
+    total: 9197,
+    items: ["Running Shoes", "Express shipping"],
+    channel: "Web"
+  },
+  {
+    id: "ORD-1006",
+    placedOn: "2026-06-01",
+    status: "Delivered",
+    payment: "Paid",
+    total: 4298,
+    items: ["Travel Backpack", "Insulated Water Bottle"],
+    channel: "Store pickup"
+  },
+  {
+    id: "ORD-1005",
+    placedOn: "2026-05-29",
+    status: "Return requested",
+    payment: "Refund pending",
+    total: 2799,
+    items: ["Rain Jacket"],
+    channel: "Web"
+  }
+];
+
 function formatPrice(amount) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
@@ -230,6 +260,8 @@ function App() {
           />
         ) : currentPath === "/size-guide" ? (
           <SizeGuidePage />
+        ) : currentPath === "/orders" ? (
+          <OrdersPage />
         ) : (
           <HomePage currentUser={currentUser} onLogout={logout} />
         )}
@@ -701,6 +733,81 @@ function SizeGuidePage() {
               <td>EU 43</td>
               <td>27.3 cm</td>
             </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function OrdersPage() {
+  const [statusFilter, setStatusFilter] = useState("All");
+  const visibleOrders =
+    statusFilter === "All" ? orders : orders.filter((order) => order.status === statusFilter);
+  const totalOrderValue = visibleOrders.reduce((total, order) => total + order.total, 0);
+  const statusOptions = ["All", ...new Set(orders.map((order) => order.status))];
+
+  return (
+    <section className="orders-page" aria-labelledby="orders-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Week 2 API-ready module</p>
+        <h1 id="orders-title">Orders</h1>
+        <p className="lead">
+          Review order history, payment state, fulfilment status, and line-item evidence for
+          end-to-end retail scenarios.
+        </p>
+      </div>
+
+      <section className="orders-summary" aria-label="Orders summary">
+        <div>
+          <span className="status-label">Visible orders</span>
+          <strong data-testid="orders-count">{visibleOrders.length}</strong>
+        </div>
+        <div>
+          <span className="status-label">Order value</span>
+          <strong>{formatPrice(totalOrderValue)}</strong>
+        </div>
+        <label className="field" htmlFor="order-status-filter">
+          <span>Order status</span>
+          <select
+            id="order-status-filter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            {statusOptions.map((status) => (
+              <option key={status}>{status}</option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <div className="panel">
+        <table>
+          <caption>Recent retail orders</caption>
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Channel</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleOrders.map((order) => (
+              <tr key={order.id}>
+                <td>
+                  <strong>{order.id}</strong>
+                  <span className="table-note">{order.items.join(", ")}</span>
+                </td>
+                <td>{order.placedOn}</td>
+                <td>{order.status}</td>
+                <td>{order.payment}</td>
+                <td>{order.channel}</td>
+                <td>{formatPrice(order.total)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
