@@ -12,12 +12,88 @@ const navItems = [
   { label: "Orders", href: "/orders", status: "Week 2" }
 ];
 
-const featuredProduct = {
-  name: "Running Shoes",
-  slug: "running-shoes",
-  price: "Rs. 4,499",
-  summary: "Lightweight daily trainers with breathable mesh and steady heel support."
-};
+const products = [
+  {
+    name: "Running Shoes",
+    slug: "running-shoes",
+    category: "Footwear",
+    price: 4499,
+    rating: 4.7,
+    stock: 18,
+    colors: ["Navy", "Black", "White"],
+    sizes: ["UK 7", "UK 8", "UK 9", "UK 10"],
+    summary: "Lightweight daily trainers with breathable mesh and steady heel support.",
+    delivery: "Ships tomorrow"
+  },
+  {
+    name: "Travel Backpack",
+    slug: "travel-backpack",
+    category: "Bags",
+    price: 3299,
+    rating: 4.5,
+    stock: 11,
+    colors: ["Forest", "Graphite"],
+    sizes: ["20 L", "30 L", "40 L"],
+    summary: "Cabin-friendly backpack with laptop storage, rain cover, and quick-access pockets.",
+    delivery: "Ships in 2 days"
+  },
+  {
+    name: "Noise Canceling Headphones",
+    slug: "noise-canceling-headphones",
+    category: "Electronics",
+    price: 7999,
+    rating: 4.8,
+    stock: 7,
+    colors: ["Black", "Silver"],
+    sizes: ["Standard"],
+    summary: "Wireless over-ear headphones with long battery life and commute-ready ANC.",
+    delivery: "Limited stock"
+  },
+  {
+    name: "Insulated Water Bottle",
+    slug: "insulated-water-bottle",
+    category: "Fitness",
+    price: 999,
+    rating: 4.3,
+    stock: 42,
+    colors: ["Blue", "Steel", "Green"],
+    sizes: ["750 ml", "1 L"],
+    summary: "Leak-proof bottle that keeps drinks cold through long office and training days.",
+    delivery: "Same-day pickup"
+  },
+  {
+    name: "Yoga Mat",
+    slug: "yoga-mat",
+    category: "Fitness",
+    price: 1499,
+    rating: 4.4,
+    stock: 23,
+    colors: ["Teal", "Purple"],
+    sizes: ["6 mm", "8 mm"],
+    summary: "Non-slip mat with firm cushioning for daily stretching and workout routines.",
+    delivery: "Ships tomorrow"
+  },
+  {
+    name: "Rain Jacket",
+    slug: "rain-jacket",
+    category: "Apparel",
+    price: 2799,
+    rating: 4.2,
+    stock: 9,
+    colors: ["Yellow", "Olive", "Black"],
+    sizes: ["S", "M", "L", "XL"],
+    summary: "Packable waterproof jacket with taped seams and adjustable hood.",
+    delivery: "Ships in 2 days"
+  }
+];
+
+function formatPrice(amount) {
+  return `Rs. ${amount.toLocaleString("en-IN")}`;
+}
+
+function findProduct(slug) {
+  return products.find((product) => product.slug === slug) || products[0];
+}
 
 const promoFrameMarkup = `
 <!doctype html>
@@ -64,7 +140,8 @@ function App() {
     window.location.pathname === "/" ? "/home" : window.location.pathname
   );
   const [currentUser, setCurrentUser] = useState(readStoredUser);
-  const [cartCount, setCartCount] = useState(0);
+  const [cartItems, setCartItems] = useState([]);
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   const navigate = (path) => {
     window.history.pushState({}, "", path);
@@ -118,15 +195,39 @@ function App() {
           <ProfilePage currentUser={currentUser} />
         ) : currentPath === "/catalog" || currentPath === "/products" ? (
           <CatalogPage onNavigate={navigate} />
-        ) : currentPath === `/product/${featuredProduct.slug}` ? (
+        ) : currentPath.startsWith("/product/") ? (
           <ProductPage
-            onAddToCart={() => {
-              setCartCount(1);
+            product={findProduct(currentPath.replace("/product/", ""))}
+            onAddToCart={(item) => {
+              setCartItems((existingItems) => {
+                const existingItem = existingItems.find(
+                  (cartItem) =>
+                    cartItem.slug === item.slug &&
+                    cartItem.size === item.size &&
+                    cartItem.color === item.color
+                );
+
+                if (!existingItem) {
+                  return [...existingItems, item];
+                }
+
+                return existingItems.map((cartItem) =>
+                  cartItem === existingItem
+                    ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
+                    : cartItem
+                );
+              });
               navigate("/cart");
             }}
           />
         ) : currentPath === "/cart" ? (
-          <CartPage cartCount={cartCount} onRemove={() => setCartCount(0)} />
+          <CartPage
+            cartCount={cartCount}
+            items={cartItems}
+            onRemove={(slug) =>
+              setCartItems((existingItems) => existingItems.filter((item) => item.slug !== slug))
+            }
+          />
         ) : currentPath === "/size-guide" ? (
           <SizeGuidePage />
         ) : (
@@ -252,61 +353,215 @@ function HomePage({ currentUser, onLogout }) {
 }
 
 function CatalogPage({ onNavigate }) {
+  const [category, setCategory] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("Recommended");
+  const categories = ["All", ...new Set(products.map((product) => product.category))];
+
+  const visibleProducts = products
+    .filter((product) => category === "All" || product.category === category)
+    .filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((first, second) => {
+      if (sortBy === "Price: low to high") {
+        return first.price - second.price;
+      }
+      if (sortBy === "Rating") {
+        return second.rating - first.rating;
+      }
+      return products.indexOf(first) - products.indexOf(second);
+    });
+  const resultLabel = visibleProducts.length === 1 ? "product" : "products";
+
   return (
-    <section className="catalog-layout" aria-labelledby="catalog-title">
+    <section className="catalog-page" aria-labelledby="catalog-title">
       <div className="hero-copy">
         <p className="eyebrow">Day 4 navigation lab</p>
         <h1 id="catalog-title">Product Catalog</h1>
         <p className="lead">
-          Practice page transitions by moving from catalog to product detail and then to cart.
+          Practice realistic retail navigation with filters, sorting, product cards, and page
+          transition assertions.
         </p>
       </div>
 
-      <article className="product-card">
-        <div>
-          <p className="eyebrow">Featured</p>
-          <h2>{featuredProduct.name}</h2>
-          <p>{featuredProduct.summary}</p>
-          <strong>{featuredProduct.price}</strong>
-        </div>
-        <a
-          className="button primary"
-          href={`/product/${featuredProduct.slug}`}
-          onClick={(event) => {
-            event.preventDefault();
-            onNavigate(`/product/${featuredProduct.slug}`);
-          }}
-        >
-          View details
-        </a>
-      </article>
+      <form className="catalog-filters" aria-label="Product filters">
+        <label className="field" htmlFor="search-products">
+          <span>Search products</span>
+          <input
+            id="search-products"
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by product name"
+          />
+        </label>
+
+        <label className="field" htmlFor="category-filter">
+          <span>Category</span>
+          <select
+            id="category-filter"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          >
+            {categories.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field" htmlFor="sort-products">
+          <span>Sort by</span>
+          <select id="sort-products" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+            <option>Recommended</option>
+            <option>Price: low to high</option>
+            <option>Rating</option>
+          </select>
+        </label>
+      </form>
+
+      <p className="inline-status" role="status" data-testid="catalog-result-count">
+        Showing {visibleProducts.length} {resultLabel}
+      </p>
+
+      <div className="product-grid" aria-label="Product results">
+        {visibleProducts.map((product) => (
+          <article className="product-card" aria-label={product.name} key={product.slug}>
+            <div>
+              <p className="eyebrow">{product.category}</p>
+              <h2>{product.name}</h2>
+              <p>{product.summary}</p>
+              <dl className="product-meta">
+                <div>
+                  <dt>Price</dt>
+                  <dd>{formatPrice(product.price)}</dd>
+                </div>
+                <div>
+                  <dt>Rating</dt>
+                  <dd>{product.rating}</dd>
+                </div>
+                <div>
+                  <dt>Stock</dt>
+                  <dd>{product.stock}</dd>
+                </div>
+              </dl>
+            </div>
+            <a
+              className="button primary"
+              href={`/product/${product.slug}`}
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate(`/product/${product.slug}`);
+              }}
+            >
+              View {product.name}
+            </a>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
 
-function ProductPage({ onAddToCart }) {
-  const [size, setSize] = useState("UK 8");
+function ProductPage({ product, onAddToCart }) {
+  const [size, setSize] = useState(product.sizes[0]);
+  const [color, setColor] = useState(product.colors[0]);
+  const [quantity, setQuantity] = useState(1);
+  const [fulfilment, setFulfilment] = useState("Home delivery");
+  const relatedProducts = products
+    .filter((item) => item.category === product.category && item.slug !== product.slug)
+    .slice(0, 2);
 
   return (
     <section className="product-layout" aria-labelledby="product-title">
       <div className="product-detail">
-        <p className="eyebrow">Product detail</p>
-        <h1 id="product-title">{featuredProduct.name}</h1>
-        <p className="lead">{featuredProduct.summary}</p>
-        <p className="price">{featuredProduct.price}</p>
+        <p className="eyebrow">{product.category}</p>
+        <h1 id="product-title">{product.name}</h1>
+        <p className="lead">{product.summary}</p>
+        <p className="price">{formatPrice(product.price)}</p>
+
+        <dl className="product-meta">
+          <div>
+            <dt>Rating</dt>
+            <dd>{product.rating} out of 5</dd>
+          </div>
+          <div>
+            <dt>Availability</dt>
+            <dd>{product.stock} in stock</dd>
+          </div>
+          <div>
+            <dt>Delivery</dt>
+            <dd>{product.delivery}</dd>
+          </div>
+        </dl>
 
         <label className="field" htmlFor="shoe-size">
           <span>Size</span>
           <select id="shoe-size" value={size} onChange={(event) => setSize(event.target.value)}>
-            <option>UK 7</option>
-            <option>UK 8</option>
-            <option>UK 9</option>
-            <option>UK 10</option>
+            {product.sizes.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
           </select>
         </label>
 
+        <fieldset className="option-group">
+          <legend>Color</legend>
+          {product.colors.map((item) => (
+            <label key={item}>
+              <input
+                checked={color === item}
+                name="color"
+                type="radio"
+                value={item}
+                onChange={(event) => setColor(event.target.value)}
+              />
+              <span>{item}</span>
+            </label>
+          ))}
+        </fieldset>
+
+        <label className="field" htmlFor="quantity">
+          <span>Quantity</span>
+          <input
+            id="quantity"
+            min="1"
+            max="5"
+            type="number"
+            value={quantity}
+            onChange={(event) => setQuantity(Number(event.target.value))}
+          />
+        </label>
+
+        <fieldset className="option-group">
+          <legend>Fulfilment</legend>
+          {["Home delivery", "Store pickup"].map((item) => (
+            <label key={item}>
+              <input
+                checked={fulfilment === item}
+                name="fulfilment"
+                type="radio"
+                value={item}
+                onChange={(event) => setFulfilment(event.target.value)}
+              />
+              <span>{item}</span>
+            </label>
+          ))}
+        </fieldset>
+
         <div className="product-actions">
-          <button className="button primary" type="button" onClick={onAddToCart}>
+          <button
+            className="button primary"
+            type="button"
+            onClick={() =>
+              onAddToCart({
+                slug: product.slug,
+                name: product.name,
+                price: product.price,
+                size,
+                color,
+                quantity,
+                fulfilment
+              })
+            }
+          >
             Add to cart
           </button>
           <a className="button secondary" href="/size-guide" target="_blank" rel="noreferrer">
@@ -315,26 +570,47 @@ function ProductPage({ onAddToCart }) {
         </div>
 
         <p className="inline-status" role="status">
-          Selected size: {size}
+          Selected {product.name}: {color}, {size}, quantity {quantity}, {fulfilment}
         </p>
       </div>
 
-      <section className="panel" aria-labelledby="promo-title">
-        <h2 id="promo-title">Promo Signup</h2>
-        <iframe
-          className="promo-frame"
-          title="Promo signup frame"
-          srcDoc={promoFrameMarkup}
-        />
-      </section>
+      <div className="side-stack">
+        <section className="panel" aria-labelledby="promo-title">
+          <h2 id="promo-title">Promo Signup</h2>
+          <iframe
+            className="promo-frame"
+            title="Promo signup frame"
+            srcDoc={promoFrameMarkup}
+          />
+        </section>
+
+        <section className="panel" aria-labelledby="related-title">
+          <h2 id="related-title">Related Products</h2>
+          {relatedProducts.length ? (
+            <ul className="related-list">
+              {relatedProducts.map((item) => (
+                <li key={item.slug}>
+                  <a href={`/product/${item.slug}`}>{item.name}</a>
+                  <span>{formatPrice(item.price)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No related products in this category.</p>
+          )}
+        </section>
+      </div>
     </section>
   );
 }
 
-function CartPage({ cartCount, onRemove }) {
-  const removeItem = () => {
-    if (window.confirm("Remove Running Shoes from cart?")) {
-      onRemove();
+function CartPage({ cartCount, items, onRemove }) {
+  const [shippingMethod, setShippingMethod] = useState("Standard shipping");
+  const shippingCost = shippingMethod === "Express shipping" && items.length ? 199 : 0;
+  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
+  const removeItem = (item) => {
+    if (window.confirm(`Remove ${item.name} from cart?`)) {
+      onRemove(item.slug);
     }
   };
 
@@ -347,14 +623,50 @@ function CartPage({ cartCount, onRemove }) {
           Cart count: <strong data-testid="cart-count">{cartCount}</strong>
         </p>
 
-        {cartCount > 0 ? (
-          <div className="cart-row">
-            <span>{featuredProduct.name}</span>
-            <span>{featuredProduct.price}</span>
-            <button className="button secondary" type="button" onClick={removeItem}>
-              Remove
-            </button>
-          </div>
+        {items.length > 0 ? (
+          <>
+            <div className="cart-items" aria-label="Cart items">
+              {items.map((item) => (
+                <div className="cart-row" key={`${item.slug}-${item.size}-${item.color}`}>
+                  <span>{item.name}</span>
+                  <span>{item.color}</span>
+                  <span>{item.size}</span>
+                  <span>Qty {item.quantity}</span>
+                  <span>{formatPrice(item.price * item.quantity)}</span>
+                  <button className="button secondary" type="button" onClick={() => removeItem(item)}>
+                    Remove {item.name}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <label className="field" htmlFor="shipping-method">
+              <span>Shipping method</span>
+              <select
+                id="shipping-method"
+                value={shippingMethod}
+                onChange={(event) => setShippingMethod(event.target.value)}
+              >
+                <option>Standard shipping</option>
+                <option>Express shipping</option>
+              </select>
+            </label>
+
+            <dl className="order-summary" aria-label="Order summary">
+              <div>
+                <dt>Subtotal</dt>
+                <dd>{formatPrice(subtotal)}</dd>
+              </div>
+              <div>
+                <dt>Shipping</dt>
+                <dd>{shippingCost ? formatPrice(shippingCost) : "Free"}</dd>
+              </div>
+              <div>
+                <dt>Total</dt>
+                <dd data-testid="order-total">{formatPrice(subtotal + shippingCost)}</dd>
+              </div>
+            </dl>
+          </>
         ) : (
           <p role="status">Your cart is empty.</p>
         )}
