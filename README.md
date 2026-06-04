@@ -63,6 +63,7 @@ The current ReactJS starter includes classroom-ready pages for:
 - Orders history and status filtering.
 - Profile form and file-upload locator practice.
 - Admin product creation/filtering and admin order queue filtering.
+- Frames, accessibility, and debugging labs for Week 1 advanced exercises.
 
 ## Current Starter Backend
 

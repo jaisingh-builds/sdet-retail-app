@@ -11,6 +11,18 @@ paths:
       responses:
         "200":
           description: Service status
+  /api/debug/cart-total:
+    get:
+      summary: Delayed cart total for Day 5 debugging labs
+      parameters:
+        - in: query
+          name: delay
+          schema:
+            type: integer
+          description: Artificial response delay in milliseconds, capped by the service.
+      responses:
+        "200":
+          description: Debug cart total summary
   /api/auth/login:
     post:
       summary: Login

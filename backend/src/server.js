@@ -57,6 +57,21 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "sdet-retail-app" });
 });
 
+app.get("/api/debug/cart-total", async (req, res) => {
+  const requestedDelay = Number(req.query.delay || 700);
+  await delay(Math.min(requestedDelay, 3000));
+  res.json({
+    items: [
+      { name: "Running Shoes", quantity: 2, lineTotal: 8998 },
+      { name: "Express shipping", quantity: 1, lineTotal: 199 }
+    ],
+    subtotal: 8998,
+    shipping: 199,
+    total: 9197,
+    ready: true
+  });
+});
+
 function handleLogin(req, res) {
   const { email, password } = req.body;
   const user = users.find((item) => item.email === email);

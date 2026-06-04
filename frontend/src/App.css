@@ -659,6 +659,7 @@ h2 {
 .checkout-page,
 .admin-page,
 .a11y-lab-page,
+.debug-page,
 .frames-page,
 .profile-page {
   display: grid;
@@ -668,6 +669,7 @@ h2 {
 .checkout-layout,
 .admin-layout,
 .a11y-lab-layout,
+.debug-layout,
 .frame-lab-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
@@ -866,6 +868,7 @@ tr:last-child td {
   .checkout-layout,
   .admin-layout,
   .a11y-lab-layout,
+  .debug-layout,
   .frame-lab-layout,
   .form-grid,
   .product-layout {

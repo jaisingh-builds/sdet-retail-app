@@ -10,6 +10,7 @@ const navItems = [
   { label: "Products", href: "/catalog", status: "Day 4" },
   { label: "Frames", href: "/frames-lab", status: "Day 4" },
   { label: "A11y Lab", href: "/a11y-lab", status: "Day 4" },
+  { label: "Debug", href: "/debug-lab", status: "Day 5" },
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Checkout", href: "/checkout", status: "Week 4" },
   { label: "Orders", href: "/orders", status: "Week 2" },
@@ -285,6 +286,8 @@ function App() {
           <FramesLabPage />
         ) : currentPath === "/a11y-lab" ? (
           <AccessibilityLabPage />
+        ) : currentPath === "/debug-lab" ? (
+          <DebugLabPage />
         ) : currentPath.startsWith("/product/") ? (
           <ProductPage
             product={findProduct(currentPath.replace("/product/", ""))}
@@ -663,6 +666,120 @@ function AccessibilityLabPage() {
               <dd>image-alt</dd>
             </div>
           </dl>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function DebugLabPage() {
+  const [status, setStatus] = useState("idle");
+  const [cartTotal, setCartTotal] = useState(null);
+  const [lastError, setLastError] = useState("");
+
+  const refreshCartTotal = async () => {
+    setStatus("loading");
+    setCartTotal(null);
+    setLastError("");
+    console.info("debug-lab: cart total request started");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/debug/cart-total?delay=650`);
+      if (!response.ok) {
+        throw new Error(`Cart total failed with ${response.status}`);
+      }
+
+      const body = await response.json();
+      console.info(`debug-lab: cart total ready ${body.total}`);
+      setCartTotal(body);
+      setStatus("ready");
+    } catch (error) {
+      console.error("debug-lab: cart total failed", error);
+      setLastError("Cart total service failed.");
+      setStatus("error");
+    }
+  };
+
+  return (
+    <section className="debug-page" aria-labelledby="debug-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Day 5 debugging lab</p>
+        <h1 id="debug-title">Debug Lab</h1>
+        <p className="lead">
+          Use this page to reproduce a timing-sensitive cart-total flow, capture traces, inspect
+          console logs, and stabilise the test by waiting for the real network signal.
+        </p>
+        <button className="button primary" type="button" onClick={refreshCartTotal}>
+          Refresh cart total
+        </button>
+      </div>
+
+      <div className="debug-layout">
+        <section className="panel" aria-labelledby="debug-status-title">
+          <h2 id="debug-status-title">Runtime Signals</h2>
+          <dl className="product-meta">
+            <div>
+              <dt>Status</dt>
+              <dd data-testid="debug-status">{status}</dd>
+            </div>
+            <div>
+              <dt>API</dt>
+              <dd>/api/debug/cart-total</dd>
+            </div>
+            <div>
+              <dt>Trace clue</dt>
+              <dd>Wait for response before asserting total</dd>
+            </div>
+          </dl>
+          {status === "loading" ? (
+            <p className="spinner" role="status" data-testid="debug-spinner">
+              Waiting for cart total...
+            </p>
+          ) : null}
+          {lastError ? <div className="alert" role="alert">{lastError}</div> : null}
+        </section>
+
+        <section className="panel" aria-labelledby="debug-summary-title">
+          <h2 id="debug-summary-title">Cart Total Summary</h2>
+          {cartTotal ? (
+            <>
+              <table>
+                <caption>Debug cart line items</caption>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cartTotal.items.map((item) => (
+                    <tr key={item.name}>
+                      <td>{item.name}</td>
+                      <td>{item.quantity}</td>
+                      <td>{formatPrice(item.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <dl className="order-summary" aria-label="Debug totals">
+                <div>
+                  <dt>Subtotal</dt>
+                  <dd>{formatPrice(cartTotal.subtotal)}</dd>
+                </div>
+                <div>
+                  <dt>Shipping</dt>
+                  <dd>{formatPrice(cartTotal.shipping)}</dd>
+                </div>
+                <div>
+                  <dt>Total</dt>
+                  <dd data-testid="debug-cart-total">{formatPrice(cartTotal.total)}</dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+            <p role="status">No cart total loaded yet.</p>
+          )}
         </section>
       </div>
     </section>
