@@ -466,7 +466,9 @@ function CatalogPage({ onNavigate }) {
   const [category, setCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("Recommended");
+  const [pageNumber, setPageNumber] = useState(1);
   const categories = ["All", ...new Set(products.map((product) => product.category))];
+  const pageSize = 3;
 
   const visibleProducts = products
     .filter((product) => category === "All" || product.category === category)
@@ -480,7 +482,23 @@ function CatalogPage({ onNavigate }) {
       }
       return products.indexOf(first) - products.indexOf(second);
     });
+  const totalPages = Math.max(1, Math.ceil(visibleProducts.length / pageSize));
+  const safePageNumber = Math.min(pageNumber, totalPages);
+  const pagedProducts = visibleProducts.slice(
+    (safePageNumber - 1) * pageSize,
+    safePageNumber * pageSize
+  );
+  const lowStockCount = visibleProducts.filter((product) => product.stock <= 10).length;
+  const averageRating = visibleProducts.length
+    ? (
+        visibleProducts.reduce((total, product) => total + product.rating, 0) / visibleProducts.length
+      ).toFixed(1)
+    : "0.0";
   const resultLabel = visibleProducts.length === 1 ? "product" : "products";
+
+  useEffect(() => {
+    setPageNumber(1);
+  }, [category, searchTerm, sortBy]);
 
   return (
     <section className="catalog-page" aria-labelledby="catalog-title">
@@ -532,8 +550,23 @@ function CatalogPage({ onNavigate }) {
         Showing {visibleProducts.length} {resultLabel}
       </p>
 
+      <section className="metric-strip" aria-label="Catalog inventory signals">
+        <div>
+          <span className="status-label">Categories</span>
+          <strong>{categories.length - 1}</strong>
+        </div>
+        <div>
+          <span className="status-label">Low stock</span>
+          <strong>{lowStockCount}</strong>
+        </div>
+        <div>
+          <span className="status-label">Average rating</span>
+          <strong>{averageRating}</strong>
+        </div>
+      </section>
+
       <div className="product-grid" aria-label="Product results">
-        {visibleProducts.map((product) => (
+        {pagedProducts.map((product) => (
           <article className="product-card" aria-label={product.name} key={product.slug}>
             <div>
               <p className="eyebrow">{product.category}</p>
@@ -567,6 +600,28 @@ function CatalogPage({ onNavigate }) {
           </article>
         ))}
       </div>
+
+      <nav className="pagination-bar" aria-label="Catalog pagination">
+        <button
+          className="button secondary"
+          type="button"
+          disabled={safePageNumber === 1}
+          onClick={() => setPageNumber((current) => Math.max(1, current - 1))}
+        >
+          Previous page
+        </button>
+        <span data-testid="catalog-page-status">
+          Page {safePageNumber} of {totalPages}
+        </span>
+        <button
+          className="button secondary"
+          type="button"
+          disabled={safePageNumber === totalPages}
+          onClick={() => setPageNumber((current) => Math.min(totalPages, current + 1))}
+        >
+          Next page
+        </button>
+      </nav>
     </section>
   );
 }
@@ -1200,10 +1255,19 @@ function SizeGuidePage() {
 
 function OrdersPage({ ordersList }) {
   const [statusFilter, setStatusFilter] = useState("All");
+  const [selectedOrderId, setSelectedOrderId] = useState(ordersList[0]?.id || "");
   const visibleOrders =
     statusFilter === "All" ? ordersList : ordersList.filter((order) => order.status === statusFilter);
   const totalOrderValue = visibleOrders.reduce((total, order) => total + order.total, 0);
   const statusOptions = ["All", ...new Set(ordersList.map((order) => order.status))];
+  const selectedOrder =
+    visibleOrders.find((order) => order.id === selectedOrderId) || visibleOrders[0] || null;
+
+  useEffect(() => {
+    if (!visibleOrders.some((order) => order.id === selectedOrderId)) {
+      setSelectedOrderId(visibleOrders[0]?.id || "");
+    }
+  }, [selectedOrderId, visibleOrders]);
 
   return (
     <section className="orders-page" aria-labelledby="orders-title">
@@ -1250,6 +1314,7 @@ function OrdersPage({ ordersList }) {
               <th>Payment</th>
               <th>Channel</th>
               <th>Total</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -1264,11 +1329,46 @@ function OrdersPage({ ordersList }) {
                 <td>{order.payment}</td>
                 <td>{order.channel}</td>
                 <td>{formatPrice(order.total)}</td>
+                <td>
+                  <button
+                    className="button secondary compact"
+                    type="button"
+                    aria-label={`View details for ${order.id}`}
+                    onClick={() => setSelectedOrderId(order.id)}
+                  >
+                    Details
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {selectedOrder ? (
+        <section className="panel" aria-labelledby="order-detail-title">
+          <h2 id="order-detail-title">Order Detail</h2>
+          <dl className="product-meta">
+            <div>
+              <dt>Order</dt>
+              <dd data-testid="selected-order-id">{selectedOrder.id}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{selectedOrder.status}</dd>
+            </div>
+            <div>
+              <dt>Payment</dt>
+              <dd>{selectedOrder.payment}</dd>
+            </div>
+          </dl>
+          <ul className="detail-list" aria-label="Selected order items">
+            {selectedOrder.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -1307,6 +1407,22 @@ function AdminProductsPage() {
     setAdminProducts((existingProducts) => [product, ...existingProducts]);
     setNewProduct({ name: "", category: "Accessories", price: "1999", stock: "10", featured: false });
     setMessage(`${product.name} created`);
+  };
+
+  const updateProduct = (slug, changes) => {
+    setAdminProducts((existingProducts) =>
+      existingProducts.map((product) =>
+        product.slug === slug ? { ...product, ...changes } : product
+      )
+    );
+    const product = adminProducts.find((item) => item.slug === slug);
+    setMessage(`${product?.name || "Product"} updated`);
+  };
+
+  const deleteProduct = (slug) => {
+    const product = adminProducts.find((item) => item.slug === slug);
+    setAdminProducts((existingProducts) => existingProducts.filter((item) => item.slug !== slug));
+    setMessage(`${product?.name || "Product"} deleted`);
   };
 
   return (
@@ -1407,6 +1523,7 @@ function AdminProductsPage() {
                 <th>Category</th>
                 <th>Price</th>
                 <th>Stock</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1416,6 +1533,38 @@ function AdminProductsPage() {
                   <td>{product.category}</td>
                   <td>{formatPrice(product.price)}</td>
                   <td>{product.stock}</td>
+                  <td>
+                    <div className="table-actions" aria-label={`${product.name} actions`}>
+                      <button
+                        className="button secondary compact"
+                        type="button"
+                        aria-label={`Restock ${product.name}`}
+                        onClick={() => updateProduct(product.slug, { stock: product.stock + 5 })}
+                      >
+                        Restock
+                      </button>
+                      <button
+                        className="button secondary compact"
+                        type="button"
+                        aria-label={`Mark down ${product.name}`}
+                        onClick={() =>
+                          updateProduct(product.slug, {
+                            price: Math.max(1, Math.round(product.price * 0.9))
+                          })
+                        }
+                      >
+                        Mark down
+                      </button>
+                      <button
+                        className="button secondary danger compact"
+                        type="button"
+                        aria-label={`Delete ${product.name}`}
+                        onClick={() => deleteProduct(product.slug)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1725,7 +1874,7 @@ function ProfilePage({ currentUser }) {
         return;
       }
 
-      const response = await fetch(`${apiBaseUrl}/api/profile`, {
+      const response = await fetch(`${apiBaseUrl}/api/users/me?delay=500`, {
         headers: { Authorization: `Bearer ${currentUser.token}` }
       });
 
@@ -1774,11 +1923,21 @@ function ProfilePage({ currentUser }) {
         <form
           className="profile-form panel"
           aria-label="Profile details"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             if (!draftProfile.name.trim()) {
               setSaveMessage("Name is required.");
               return;
+            }
+            if (currentUser?.token) {
+              await fetch(`${apiBaseUrl}/api/users/me`, {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${currentUser.token}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ name: draftProfile.name })
+              });
             }
             setProfile(draftProfile);
             setSaveMessage("Profile saved.");

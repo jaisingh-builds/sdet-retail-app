@@ -206,7 +206,12 @@ app.get("/api/orders/:id", requireAuth, (req, res) => {
   res.json(order);
 });
 
-app.get("/api/users/me", requireAuth, (req, res) => {
+app.get("/api/users/me", requireAuth, async (req, res) => {
+  const requestedDelay = Number(req.query.delay || 0);
+  if (requestedDelay > 0) {
+    await delay(Math.min(requestedDelay, 3000));
+  }
+
   res.json({ id: req.user.id, email: req.user.email, role: req.user.role, name: req.user.name });
 });
 
