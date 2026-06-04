@@ -40,7 +40,7 @@ The app should not become a large production-style microservice platform. The go
 | Support | `support@example.com` | `Password@123` |
 | Locked | `locked@example.com` | `Password@123` |
 
-## Day 1 Frontend
+## Frontend Training Surface
 
 ```bash
 cd frontend
@@ -54,7 +54,15 @@ Open the app at:
 http://localhost:5173
 ```
 
-Day 1 uses this ReactJS page for title, URL, heading, screenshot, and accessibility-structure validation.
+The current ReactJS starter includes classroom-ready pages for:
+
+- Login and negative authentication.
+- Home and navigation smoke tests.
+- Product catalog search, filter, sort, and product detail.
+- Cart, checkout, coupon, and order confirmation.
+- Orders history and status filtering.
+- Profile form and file-upload locator practice.
+- Admin product creation/filtering and admin order queue filtering.
 
 ## Current Starter Backend
 

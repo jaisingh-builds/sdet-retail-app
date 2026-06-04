@@ -121,8 +121,9 @@ app.post("/api/cart/items", requireAuth, (req, res) => {
     return res.status(404).json({ message: "Product not found" });
   }
 
-  cart.push({ userId: req.user.id, productId: product.id, quantity });
-  res.status(201).json({ productId: product.id, quantity });
+  const item = { id: cart.length + 1, userId: req.user.id, productId: product.id, quantity };
+  cart.push(item);
+  res.status(201).json({ id: item.id, productId: product.id, quantity });
 });
 
 app.get("/api/cart", requireAuth, (req, res) => {
@@ -131,6 +132,27 @@ app.get("/api/cart", requireAuth, (req, res) => {
     .map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) }));
   const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   res.json({ items, total });
+});
+
+app.put("/api/cart/items/:id", requireAuth, (req, res) => {
+  const item = cart.find((candidate) => candidate.id === Number(req.params.id) && candidate.userId === req.user.id);
+  if (!item) {
+    return res.status(404).json({ message: "Cart item not found" });
+  }
+
+  item.quantity = Number(req.body.quantity || item.quantity);
+  res.json(item);
+});
+
+app.delete("/api/cart/items/:id", requireAuth, (req, res) => {
+  const existingCount = cart.length;
+  cart = cart.filter((item) => !(item.id === Number(req.params.id) && item.userId === req.user.id));
+
+  if (cart.length === existingCount) {
+    return res.status(404).json({ message: "Cart item not found" });
+  }
+
+  res.status(204).send();
 });
 
 app.post("/api/orders", requireAuth, (req, res) => {
@@ -155,6 +177,10 @@ app.post("/api/orders", requireAuth, (req, res) => {
   orders.push(order);
   cart = cart.filter((item) => item.userId !== req.user.id);
   res.status(201).json(order);
+});
+
+app.get("/api/orders", requireAuth, (req, res) => {
+  res.json({ items: orders.filter((item) => item.userId === req.user.id) });
 });
 
 app.get("/api/orders/:id", requireAuth, (req, res) => {
@@ -197,6 +223,10 @@ app.put("/api/admin/products/:id", requireAuth, requireAdmin, (req, res) => {
 app.delete("/api/admin/products/:id", requireAuth, requireAdmin, (req, res) => {
   products = products.filter((item) => item.id !== Number(req.params.id));
   res.status(204).send();
+});
+
+app.get("/api/admin/orders", requireAuth, requireAdmin, (_req, res) => {
+  res.json({ items: orders });
 });
 
 app.listen(port, () => {
