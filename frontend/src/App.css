@@ -658,17 +658,27 @@ h2 {
 
 .checkout-page,
 .admin-page,
+.frames-page,
 .profile-page {
   display: grid;
   gap: 28px;
 }
 
 .checkout-layout,
-.admin-layout {
+.admin-layout,
+.frame-lab-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
   gap: 28px;
   align-items: start;
+}
+
+.exercise-frame {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid #bdc8d8;
+  border-radius: 6px;
+  background: #ffffff;
 }
 
 .form-grid {
@@ -824,6 +834,7 @@ tr:last-child td {
   .orders-summary,
   .checkout-layout,
   .admin-layout,
+  .frame-lab-layout,
   .form-grid,
   .product-layout {
     grid-template-columns: 1fr;

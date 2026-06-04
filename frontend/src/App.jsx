@@ -8,6 +8,7 @@ const navItems = [
   { label: "Sync Lab", href: "/sync-lab", status: "Day 3" },
   { label: "Profile", href: "/profile", status: "Day 3" },
   { label: "Products", href: "/catalog", status: "Day 4" },
+  { label: "Frames", href: "/frames-lab", status: "Day 4" },
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Checkout", href: "/checkout", status: "Week 4" },
   { label: "Orders", href: "/orders", status: "Week 2" },
@@ -151,6 +152,43 @@ const promoFrameMarkup = `
       <button type="submit">Subscribe</button>
       <p id="promo-status" role="status"></p>
     </form>
+</body>
+</html>`;
+
+const shippingFrameMarkup = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Shipping estimate widget</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; color: #172033; background: #ffffff; }
+      main { display: grid; gap: 14px; padding: 18px; }
+      h1 { margin: 0; font-size: 1.25rem; }
+      p { margin: 0; color: #40506a; line-height: 1.5; }
+      form { display: grid; gap: 12px; }
+      label { display: grid; gap: 6px; font-weight: 700; }
+      input, select { min-height: 38px; border: 1px solid #8f9bb0; border-radius: 4px; padding: 6px 8px; font: inherit; }
+      button { width: fit-content; min-height: 38px; border: 0; border-radius: 4px; background: #125e6b; color: white; padding: 0 14px; font-weight: 700; }
+      [role="status"] { min-height: 22px; font-weight: 700; color: #0f5360; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Shipping Partner Widget</h1>
+      <p>This content is isolated inside an iframe to practice frame-specific locators.</p>
+      <form aria-label="Shipping estimate" onsubmit="event.preventDefault(); document.getElementById('estimate-status').textContent='Estimate ready: delivery by Friday';">
+        <label>Order ID <input name="orderId" value="ORD-1007" required /></label>
+        <label>Destination
+          <select name="destination">
+            <option>Bengaluru</option>
+            <option>Chennai</option>
+            <option>Hyderabad</option>
+          </select>
+        </label>
+        <button type="submit">Get estimate</button>
+        <p id="estimate-status" role="status"></p>
+      </form>
+    </main>
   </body>
 </html>`;
 
@@ -233,6 +271,8 @@ function App() {
           <ProfilePage currentUser={currentUser} />
         ) : currentPath === "/catalog" || currentPath === "/products" ? (
           <CatalogPage onNavigate={navigate} />
+        ) : currentPath === "/frames-lab" ? (
+          <FramesLabPage />
         ) : currentPath.startsWith("/product/") ? (
           <ProductPage
             product={findProduct(currentPath.replace("/product/", ""))}
@@ -511,6 +551,54 @@ function CatalogPage({ onNavigate }) {
             </a>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function FramesLabPage() {
+  return (
+    <section className="frames-page" aria-labelledby="frames-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Day 4 iframe lab</p>
+        <h1 id="frames-title">Frames Lab</h1>
+        <p className="lead">
+          Practice switching from the main page into an embedded shipping partner widget. The
+          controls below are not in the parent document.
+        </p>
+      </div>
+
+      <div className="frame-lab-layout">
+        <section className="panel" aria-labelledby="parent-context-title">
+          <h2 id="parent-context-title">Parent Page Context</h2>
+          <dl className="product-meta">
+            <div>
+              <dt>Order</dt>
+              <dd>ORD-1007</dd>
+            </div>
+            <div>
+              <dt>Carrier</dt>
+              <dd>UST Express</dd>
+            </div>
+            <div>
+              <dt>Widget source</dt>
+              <dd>Embedded iframe</dd>
+            </div>
+          </dl>
+          <p>
+            Parent-page locators cannot directly see the form fields inside the frame. Use
+            `frameLocator()` for the shipping estimate form.
+          </p>
+        </section>
+
+        <section className="panel" aria-labelledby="shipping-frame-title">
+          <h2 id="shipping-frame-title">Embedded Shipping Widget</h2>
+          <iframe
+            className="exercise-frame"
+            title="Shipping estimate frame"
+            srcDoc={shippingFrameMarkup}
+          />
+        </section>
       </div>
     </section>
   );
