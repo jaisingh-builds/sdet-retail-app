@@ -9,6 +9,7 @@ const navItems = [
   { label: "Profile", href: "/profile", status: "Day 3" },
   { label: "Products", href: "/catalog", status: "Day 4" },
   { label: "Frames", href: "/frames-lab", status: "Day 4" },
+  { label: "A11y Lab", href: "/a11y-lab", status: "Day 4" },
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Checkout", href: "/checkout", status: "Week 4" },
   { label: "Orders", href: "/orders", status: "Week 2" },
@@ -282,6 +283,8 @@ function App() {
           <CatalogPage onNavigate={navigate} />
         ) : currentPath === "/frames-lab" ? (
           <FramesLabPage />
+        ) : currentPath === "/a11y-lab" ? (
+          <AccessibilityLabPage />
         ) : currentPath.startsWith("/product/") ? (
           <ProductPage
             product={findProduct(currentPath.replace("/product/", ""))}
@@ -607,6 +610,59 @@ function FramesLabPage() {
             title="Shipping estimate frame"
             srcDoc={shippingFrameMarkup}
           />
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function AccessibilityLabPage() {
+  return (
+    <section className="a11y-lab-page" aria-labelledby="a11y-lab-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Day 4 accessibility lab</p>
+        <h1 id="a11y-lab-title">A11y Lab</h1>
+        <p className="lead">
+          This page intentionally includes accessibility defects so trainees can run Axe, inspect
+          rule IDs, and trace a violation back to the DOM.
+        </p>
+      </div>
+
+      <div className="a11y-lab-layout">
+        <section className="panel" aria-labelledby="broken-widget-title">
+          <h2 id="broken-widget-title">Broken Support Widget</h2>
+          <p>
+            The ticket input below has no accessible label. The image also has no alternative text.
+          </p>
+          <div className="broken-support-card">
+            <img
+              className="support-preview"
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Crect width='240' height='120' fill='%23dbeafe'/%3E%3Ccircle cx='64' cy='58' r='24' fill='%23125e6b'/%3E%3Crect x='104' y='42' width='92' height='16' fill='%23172033'/%3E%3Crect x='104' y='68' width='64' height='12' fill='%2340506a'/%3E%3C/svg%3E"
+            />
+            <input id="support-ticket" placeholder="Enter support ticket ID" />
+            <button className="icon-only-broken-button" type="button"></button>
+            <button className="button primary" type="button">
+              Lookup ticket
+            </button>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="a11y-backtrack-title">
+          <h2 id="a11y-backtrack-title">Backtracking Clues</h2>
+          <dl className="product-meta">
+            <div>
+              <dt>Expected Axe rule</dt>
+              <dd>button-name</dd>
+            </div>
+            <div>
+              <dt>Likely target</dt>
+              <dd>.icon-only-broken-button</dd>
+            </div>
+            <div>
+              <dt>Expected Axe rule</dt>
+              <dd>image-alt</dd>
+            </div>
+          </dl>
         </section>
       </div>
     </section>

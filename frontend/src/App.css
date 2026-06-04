@@ -658,6 +658,7 @@ h2 {
 
 .checkout-page,
 .admin-page,
+.a11y-lab-page,
 .frames-page,
 .profile-page {
   display: grid;
@@ -666,6 +667,7 @@ h2 {
 
 .checkout-layout,
 .admin-layout,
+.a11y-lab-layout,
 .frame-lab-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
@@ -679,6 +681,35 @@ h2 {
   border: 1px solid #bdc8d8;
   border-radius: 6px;
   background: #ffffff;
+}
+
+.broken-support-card {
+  display: grid;
+  gap: 14px;
+  max-width: 420px;
+}
+
+.support-preview {
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid #bdc8d8;
+  border-radius: 6px;
+}
+
+.broken-support-card input {
+  min-height: 46px;
+  border: 1px solid #b9c5d8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.icon-only-broken-button {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: #125e6b;
 }
 
 .form-grid {
@@ -834,6 +865,7 @@ tr:last-child td {
   .orders-summary,
   .checkout-layout,
   .admin-layout,
+  .a11y-lab-layout,
   .frame-lab-layout,
   .form-grid,
   .product-layout {
