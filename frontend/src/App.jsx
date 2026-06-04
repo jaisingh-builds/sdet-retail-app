@@ -224,6 +224,15 @@ function App() {
     setCurrentPath(path);
   };
 
+  useEffect(() => {
+    const syncPathFromBrowserHistory = () => {
+      setCurrentPath(window.location.pathname === "/" ? "/home" : window.location.pathname);
+    };
+
+    window.addEventListener("popstate", syncPathFromBrowserHistory);
+    return () => window.removeEventListener("popstate", syncPathFromBrowserHistory);
+  }, []);
+
   const login = async ({ email, password }) => {
     const response = await fetch(`${apiBaseUrl}/api/login`, {
       method: "POST",
