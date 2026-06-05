@@ -895,6 +895,15 @@ h2 {
   font-weight: 800;
 }
 
+.cart-row small,
+.summary-row small {
+  display: block;
+  margin-top: 4px;
+  color: #66748a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .summary-row:last-child {
   border-bottom: 0;
 }

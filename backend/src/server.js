@@ -170,6 +170,11 @@ app.get("/api/cart", requireAuth, (req, res) => {
   res.json({ items, total });
 });
 
+app.delete("/api/cart", requireAuth, (req, res) => {
+  cart = cart.filter((item) => item.ownerKey !== ownerKey(req));
+  res.status(204).send();
+});
+
 app.put("/api/cart/items/:id", requireAuth, (req, res) => {
   const item = cart.find((candidate) => candidate.id === Number(req.params.id) && candidate.ownerKey === ownerKey(req));
   if (!item) {

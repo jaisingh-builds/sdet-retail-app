@@ -121,6 +121,13 @@ paths:
       responses:
         "200":
           description: Cart state
+    delete:
+      summary: Clear cart
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Cart cleared
   /api/orders:
     get:
       summary: List orders for current user

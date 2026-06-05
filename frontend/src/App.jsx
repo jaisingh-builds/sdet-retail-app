@@ -381,13 +381,16 @@ function readCartSessionId() {
 }
 
 function mapApiCartItem(item) {
-  const product = item.product || products.find((candidate) => candidate.id === item.productId);
+  const catalogProduct = products.find((candidate) => candidate.id === item.productId);
+  const product = { ...catalogProduct, ...item.product };
 
   return {
     id: item.id,
     productId: item.productId,
-    slug: slugify(product?.name || "product"),
+    slug: product.slug || slugify(product.name || "product"),
     name: product?.name || "Product",
+    sku: product.sku || `SKU-${item.productId}`,
+    brand: product.brand || "Retail Lab",
     price: product?.price || 0,
     size: item.size || "Standard",
     color: item.color || "Default",
@@ -397,7 +400,11 @@ function mapApiCartItem(item) {
 }
 
 function mapApiOrder(order) {
-  const items = order.items?.map((item) => item.product?.name || item.name || "Product") || [];
+  const items = order.items?.map((item) => {
+    const catalogProduct = products.find((candidate) => candidate.id === item.productId);
+    const product = { ...catalogProduct, ...item.product };
+    return `${product.name || item.name || "Product"} x ${item.quantity || 1}`;
+  }) || [];
 
   return {
     id: order.orderNumber || `ORD-${order.id}`,
@@ -504,6 +511,40 @@ function App() {
     setCurrentPath(path);
   };
 
+  const loadCart = async () => {
+    const response = await fetch(`${apiBaseUrl}/api/cart`, {
+      headers: {
+        Authorization: `Bearer ${apiUser.token}`,
+        "X-Cart-Session": cartSessionId
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("Cart API failed");
+    }
+
+    const body = await response.json();
+    const mappedItems = body.items.map(mapApiCartItem);
+    setCartItems(mappedItems);
+    return mappedItems;
+  };
+
+  const clearCart = async () => {
+    const response = await fetch(`${apiBaseUrl}/api/cart`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${apiUser.token}`,
+        "X-Cart-Session": cartSessionId
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("Cart API failed");
+    }
+
+    setCartItems([]);
+  };
+
   useEffect(() => {
     const syncPathFromBrowserHistory = () => {
       setCurrentPath(window.location.pathname === "/" ? "/home" : window.location.pathname);
@@ -512,6 +553,31 @@ function App() {
     window.addEventListener("popstate", syncPathFromBrowserHistory);
     return () => window.removeEventListener("popstate", syncPathFromBrowserHistory);
   }, []);
+
+  useEffect(() => {
+    if (currentPath !== "/cart" && currentPath !== "/checkout") {
+      return;
+    }
+
+    let cancelled = false;
+
+    loadCart()
+      .then((items) => {
+        if (cancelled) {
+          return;
+        }
+        setCartItems(items);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCartItems([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUser.token, cartSessionId, currentPath]);
 
   const login = async ({ email, password }) => {
     const response = await fetch(`${apiBaseUrl}/api/login`, {
@@ -590,14 +656,7 @@ function App() {
                 throw new Error("Cart API failed");
               }
 
-              const cartResponse = await fetch(`${apiBaseUrl}/api/cart`, {
-                headers: {
-                  Authorization: `Bearer ${apiUser.token}`,
-                  "X-Cart-Session": cartSessionId
-                }
-              });
-              const cartBody = await cartResponse.json();
-              setCartItems(cartBody.items.map(mapApiCartItem));
+              await loadCart();
               navigate("/cart");
             }}
           />
@@ -620,6 +679,7 @@ function App() {
                 existingItems.filter((cartItem) => cartItem.id !== item.id)
               );
             }}
+            onClearCart={clearCart}
           />
         ) : currentPath === "/checkout" ? (
           <CheckoutPage
@@ -1399,7 +1459,7 @@ function ProductPage({ product, onAddToCart }) {
   );
 }
 
-function CartPage({ cartCount, items, onNavigate, onRemove }) {
+function CartPage({ cartCount, items, onNavigate, onRemove, onClearCart }) {
   const [shippingMethod, setShippingMethod] = useState("Standard shipping");
   const shippingCost = shippingMethod === "Express shipping" && items.length ? 199 : 0;
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -1427,7 +1487,10 @@ function CartPage({ cartCount, items, onNavigate, onRemove }) {
             <div className="cart-items" aria-label="Cart items">
               {items.map((item) => (
                 <div className="cart-row" key={`${item.slug}-${item.size}-${item.color}`}>
-                  <span>{item.name}</span>
+                  <span>
+                    <strong>{item.name}</strong>
+                    <small>{item.sku}</small>
+                  </span>
                   <span>{item.color}</span>
                   <span>{item.size}</span>
                   <span>Qty {item.quantity}</span>
@@ -1470,11 +1533,15 @@ function CartPage({ cartCount, items, onNavigate, onRemove }) {
               <strong>API evidence</strong>
               <span>POST /api/cart/items</span>
               <span>GET /api/cart</span>
+              <span>DELETE /api/cart</span>
               <span>DELETE /api/cart/items/:id</span>
             </section>
 
             <button className="button primary" type="button" onClick={() => onNavigate("/checkout")}>
               Proceed to checkout
+            </button>
+            <button className="button secondary" type="button" onClick={onClearCart}>
+              Start fresh cart
             </button>
           </>
         ) : (
@@ -1606,7 +1673,10 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
             <div className="cart-items" aria-label="Checkout items">
               {items.map((item) => (
                 <div className="summary-row" key={`${item.slug}-${item.size}-${item.color}`}>
-                  <span>{item.name}</span>
+                  <span>
+                    <strong>{item.name}</strong>
+                    <small>{item.sku} · {item.color} · {item.size}</small>
+                  </span>
                   <span>Qty {item.quantity}</span>
                   <strong>{formatPrice(item.price * item.quantity)}</strong>
                 </div>
