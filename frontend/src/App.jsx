@@ -29,78 +29,276 @@ const products = [
     name: "Running Shoes",
     slug: "running-shoes",
     category: "Footwear",
+    brand: "SwiftRun",
+    sku: "FT-SHOE-101",
     price: 4499,
     rating: 4.7,
     stock: 18,
+    reorderLevel: 8,
+    warehouse: "BLR-A1",
+    imageTone: "teal",
     colors: ["Navy", "Black", "White"],
     sizes: ["UK 7", "UK 8", "UK 9", "UK 10"],
     summary: "Lightweight daily trainers with breathable mesh and steady heel support.",
-    delivery: "Ships tomorrow"
+    delivery: "Ships tomorrow",
+    warranty: "6-month sole warranty",
+    returnWindow: "10-day easy exchange",
+    tags: ["Best seller", "Running", "COD eligible"],
+    highlights: ["Breathable mesh upper", "High-grip outsole", "Foam heel support"],
+    specs: { Weight: "620 g", Material: "Engineered mesh", "Use case": "Daily running" }
   },
   {
     id: 102,
     name: "Travel Backpack",
     slug: "travel-backpack",
     category: "Bags",
+    brand: "TrailVault",
+    sku: "BG-TRVL-102",
     price: 3299,
     rating: 4.5,
     stock: 11,
+    reorderLevel: 6,
+    warehouse: "HYD-B2",
+    imageTone: "green",
     colors: ["Forest", "Graphite"],
     sizes: ["20 L", "30 L", "40 L"],
     summary: "Cabin-friendly backpack with laptop storage, rain cover, and quick-access pockets.",
-    delivery: "Ships in 2 days"
+    delivery: "Ships in 2 days",
+    warranty: "1-year zip warranty",
+    returnWindow: "7-day return",
+    tags: ["Travel", "Laptop safe", "Rain cover"],
+    highlights: ["Dedicated 15-inch laptop sleeve", "Wet pocket", "Side bottle holder"],
+    specs: { Capacity: "30 L", Material: "Ripstop polyester", Weight: "880 g" }
   },
   {
     id: 103,
     name: "Noise Canceling Headphones",
     slug: "noise-canceling-headphones",
     category: "Electronics",
+    brand: "SoundNest",
+    sku: "EL-AUD-103",
     price: 7999,
     rating: 4.8,
     stock: 7,
+    reorderLevel: 10,
+    warehouse: "BLR-C3",
+    imageTone: "slate",
     colors: ["Black", "Silver"],
     sizes: ["Standard"],
     summary: "Wireless over-ear headphones with long battery life and commute-ready ANC.",
-    delivery: "Limited stock"
+    delivery: "Limited stock",
+    warranty: "1-year manufacturer warranty",
+    returnWindow: "7-day replacement",
+    tags: ["Low stock", "Bluetooth", "ANC"],
+    highlights: ["42-hour battery", "Fast charge", "Dual-device pairing"],
+    specs: { Battery: "42 hours", Connectivity: "Bluetooth 5.3", Charging: "USB-C" }
   },
   {
     id: 104,
     name: "Insulated Water Bottle",
     slug: "insulated-water-bottle",
     category: "Fitness",
+    brand: "HydraPeak",
+    sku: "FT-BTL-104",
     price: 999,
     rating: 4.3,
     stock: 42,
+    reorderLevel: 12,
+    warehouse: "CHN-D1",
+    imageTone: "blue",
     colors: ["Blue", "Steel", "Green"],
     sizes: ["750 ml", "1 L"],
     summary: "Leak-proof bottle that keeps drinks cold through long office and training days.",
-    delivery: "Same-day pickup"
+    delivery: "Same-day pickup",
+    warranty: "No-leak replacement",
+    returnWindow: "7-day return",
+    tags: ["Pickup ready", "BPA free", "Fitness"],
+    highlights: ["24-hour cold retention", "Wide-mouth cap", "Sweat-proof finish"],
+    specs: { Capacity: "1 L", Material: "Stainless steel", Finish: "Powder coated" }
   },
   {
     id: 105,
     name: "Yoga Mat",
     slug: "yoga-mat",
     category: "Fitness",
+    brand: "FlexWell",
+    sku: "FT-YOGA-105",
     price: 1499,
     rating: 4.4,
     stock: 23,
+    reorderLevel: 9,
+    warehouse: "BLR-A2",
+    imageTone: "purple",
     colors: ["Teal", "Purple"],
     sizes: ["6 mm", "8 mm"],
     summary: "Non-slip mat with firm cushioning for daily stretching and workout routines.",
-    delivery: "Ships tomorrow"
+    delivery: "Ships tomorrow",
+    warranty: "3-month peel warranty",
+    returnWindow: "7-day return",
+    tags: ["Workout", "Beginner friendly", "Non-slip"],
+    highlights: ["Textured grip", "Carry strap included", "Sweat-resistant surface"],
+    specs: { Thickness: "8 mm", Length: "183 cm", Material: "TPE foam" }
   },
   {
     id: 106,
     name: "Rain Jacket",
     slug: "rain-jacket",
     category: "Apparel",
+    brand: "MonsoonLab",
+    sku: "AP-RAIN-106",
     price: 2799,
     rating: 4.2,
     stock: 9,
+    reorderLevel: 10,
+    warehouse: "MUM-R1",
+    imageTone: "yellow",
     colors: ["Yellow", "Olive", "Black"],
     sizes: ["S", "M", "L", "XL"],
     summary: "Packable waterproof jacket with taped seams and adjustable hood.",
-    delivery: "Ships in 2 days"
+    delivery: "Ships in 2 days",
+    warranty: "Seasonal waterproof warranty",
+    returnWindow: "10-day exchange",
+    tags: ["Low stock", "Waterproof", "Monsoon"],
+    highlights: ["Taped seams", "Packable pouch", "Adjustable hood"],
+    specs: { Material: "Polyester shell", Rating: "5K waterproof", Weight: "410 g" }
+  },
+  {
+    id: 107,
+    name: "Smart Desk Lamp",
+    slug: "smart-desk-lamp",
+    category: "Workspace",
+    brand: "LumaDesk",
+    sku: "WS-LAMP-107",
+    price: 2199,
+    rating: 4.6,
+    stock: 16,
+    reorderLevel: 8,
+    warehouse: "BLR-C1",
+    imageTone: "amber",
+    colors: ["White", "Graphite"],
+    sizes: ["Standard"],
+    summary: "Dimmable desk lamp with reading, focus, and night modes for hybrid work setups.",
+    delivery: "Ships tomorrow",
+    warranty: "1-year electrical warranty",
+    returnWindow: "7-day replacement",
+    tags: ["Workspace", "USB-C", "Dimmable"],
+    highlights: ["Touch controls", "USB-C charging port", "Three color temperatures"],
+    specs: { Power: "12 W", Modes: "3 light modes", Material: "Aluminium" }
+  },
+  {
+    id: 108,
+    name: "Organic Snack Box",
+    slug: "organic-snack-box",
+    category: "Grocery",
+    brand: "GoodGrain",
+    sku: "GR-SNCK-108",
+    price: 1199,
+    rating: 4.1,
+    stock: 35,
+    reorderLevel: 15,
+    warehouse: "DEL-F1",
+    imageTone: "orange",
+    colors: ["Assorted"],
+    sizes: ["12 pack"],
+    summary: "Assorted office snack box with millet bars, roasted nuts, and baked crisps.",
+    delivery: "Same-day delivery",
+    warranty: "Freshness guaranteed",
+    returnWindow: "Non-returnable grocery",
+    tags: ["Fresh stock", "Office pantry", "Vegetarian"],
+    highlights: ["12 individually packed snacks", "No artificial colors", "Pantry-ready carton"],
+    specs: { Packs: "12", ShelfLife: "90 days", Diet: "Vegetarian" }
+  },
+  {
+    id: 109,
+    name: "Ceramic Dinner Set",
+    slug: "ceramic-dinner-set",
+    category: "Home",
+    brand: "TableCraft",
+    sku: "HM-DINE-109",
+    price: 3899,
+    rating: 4.5,
+    stock: 6,
+    reorderLevel: 8,
+    warehouse: "PUN-H1",
+    imageTone: "rose",
+    colors: ["Ivory", "Sage"],
+    sizes: ["12 piece", "18 piece"],
+    summary: "Microwave-safe ceramic dinner set for family dining and gifting.",
+    delivery: "Fragile handling",
+    warranty: "Transit breakage covered",
+    returnWindow: "5-day replacement",
+    tags: ["Low stock", "Giftable", "Fragile"],
+    highlights: ["Dinner plates and bowls", "Dishwasher safe", "Gift-ready packaging"],
+    specs: { Pieces: "18", Material: "Ceramic", Care: "Dishwasher safe" }
+  },
+  {
+    id: 110,
+    name: "Resistance Bands Kit",
+    slug: "resistance-bands-kit",
+    category: "Fitness",
+    brand: "CoreFlex",
+    sku: "FT-BAND-110",
+    price: 1299,
+    rating: 4.4,
+    stock: 31,
+    reorderLevel: 10,
+    warehouse: "BLR-A2",
+    imageTone: "red",
+    colors: ["Multi"],
+    sizes: ["5 band kit"],
+    summary: "Five-level resistance kit with handles, door anchor, and travel pouch.",
+    delivery: "Ships tomorrow",
+    warranty: "3-month snap warranty",
+    returnWindow: "7-day return",
+    tags: ["Home workout", "Travel kit", "Beginner friendly"],
+    highlights: ["5 resistance levels", "Door anchor included", "Exercise guide card"],
+    specs: { Levels: "5", MaxResistance: "45 kg", Material: "Latex" }
+  },
+  {
+    id: 111,
+    name: "Skin Care Travel Kit",
+    slug: "skin-care-travel-kit",
+    category: "Beauty",
+    brand: "GlowRoute",
+    sku: "BT-SKIN-111",
+    price: 2499,
+    rating: 4.2,
+    stock: 14,
+    reorderLevel: 7,
+    warehouse: "DEL-B1",
+    imageTone: "pink",
+    colors: ["Classic"],
+    sizes: ["Mini kit"],
+    summary: "Travel-friendly cleanser, moisturiser, sunscreen, and pouch bundle.",
+    delivery: "Ships in 2 days",
+    warranty: "Batch quality guarantee",
+    returnWindow: "Sealed returns only",
+    tags: ["Travel", "SPF", "Giftable"],
+    highlights: ["TSA-friendly sizes", "Reusable pouch", "Dermatologist tested"],
+    specs: { Items: "4", SkinType: "All skin types", Volume: "50 ml each" }
+  },
+  {
+    id: 112,
+    name: "Kids Learning Tablet",
+    slug: "kids-learning-tablet",
+    category: "Electronics",
+    brand: "BrightByte",
+    sku: "EL-KIDS-112",
+    price: 9999,
+    rating: 4.6,
+    stock: 5,
+    reorderLevel: 8,
+    warehouse: "BLR-C3",
+    imageTone: "cyan",
+    colors: ["Blue", "Pink"],
+    sizes: ["64 GB"],
+    summary: "Kid-safe tablet with parental controls, learning apps, and shock-proof case.",
+    delivery: "Limited stock",
+    warranty: "1-year device warranty",
+    returnWindow: "7-day replacement",
+    tags: ["Low stock", "Parental controls", "Learning"],
+    highlights: ["Preloaded learning apps", "Shock-proof case", "Screen-time controls"],
+    specs: { Storage: "64 GB", Battery: "8 hours", Display: "8 inch" }
   }
 ];
 
@@ -112,7 +310,11 @@ const orders = [
     payment: "Paid",
     total: 9197,
     items: ["Running Shoes", "Express shipping"],
-    channel: "Web"
+    channel: "Web",
+    customer: "Customer User",
+    fulfilmentCenter: "BLR-A1",
+    sla: "Dispatch today",
+    timeline: ["Order placed", "Payment captured", "Picking in progress", "Ready for dispatch"]
   },
   {
     id: "ORD-1006",
@@ -121,7 +323,11 @@ const orders = [
     payment: "Paid",
     total: 4298,
     items: ["Travel Backpack", "Insulated Water Bottle"],
-    channel: "Store pickup"
+    channel: "Store pickup",
+    customer: "Priya Nair",
+    fulfilmentCenter: "HYD-B2",
+    sla: "Delivered",
+    timeline: ["Order placed", "Packed", "Pickup ready", "Delivered"]
   },
   {
     id: "ORD-1005",
@@ -130,8 +336,25 @@ const orders = [
     payment: "Refund pending",
     total: 2799,
     items: ["Rain Jacket"],
-    channel: "Web"
+    channel: "Web",
+    customer: "Arjun Mehta",
+    fulfilmentCenter: "MUM-R1",
+    sla: "Return pickup due",
+    timeline: ["Order placed", "Delivered", "Return requested", "Refund review"]
   }
+];
+
+const operationMetrics = [
+  { label: "Open carts", value: "18", detail: "5 need payment follow-up" },
+  { label: "Orders today", value: "126", detail: "92% within SLA" },
+  { label: "Low stock SKUs", value: "4", detail: "Electronics and home alerts" },
+  { label: "Mock services", value: "3", detail: "Payment, shipping, notification" }
+];
+
+const fulfilmentSignals = [
+  { label: "Payment gateway", value: "UP", detail: "WireMock success mapping ready" },
+  { label: "Inventory sync", value: "Delayed", detail: "Use traces to spot slow responses" },
+  { label: "Shipping estimate", value: "Iframe", detail: "Third-party widget exercise" }
 ];
 
 function formatPrice(amount) {
@@ -550,6 +773,41 @@ function HomePage({ currentUser, onLogout }) {
           </div>
         </article>
       </section>
+
+      <section className="metric-strip wide" aria-label="Retail operations snapshot">
+        {operationMetrics.map((metric) => (
+          <div key={metric.label}>
+            <span className="status-label">{metric.label}</span>
+            <strong>{metric.value}</strong>
+            <p>{metric.detail}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="content-grid" aria-label="Service readiness">
+        <article className="panel">
+          <h2>Fulfilment Signals</h2>
+          <div className="module-list">
+            {fulfilmentSignals.map((signal) => (
+              <div className="module-row compact-row" key={signal.label}>
+                <span>{signal.label}</span>
+                <span>{signal.value}</span>
+                <small>{signal.detail}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <h2>Capstone Flow</h2>
+          <ol className="numbered-list">
+            <li>Search product and validate product metadata.</li>
+            <li>Add to cart through the POS API.</li>
+            <li>Checkout and create an order through the API.</li>
+            <li>Review order history and evidence.</li>
+          </ol>
+        </article>
+      </section>
     </>
   );
 }
@@ -660,10 +918,20 @@ function CatalogPage({ onNavigate }) {
       <div className="product-grid" aria-label="Product results">
         {pagedProducts.map((product) => (
           <article className="product-card" aria-label={product.name} key={product.slug}>
+            <div className={`product-visual ${product.imageTone}`} aria-hidden="true">
+              <span>{product.category}</span>
+              <strong>{product.brand}</strong>
+            </div>
             <div>
               <p className="eyebrow">{product.category}</p>
               <h2>{product.name}</h2>
+              <p className="table-note">{product.brand} · {product.sku}</p>
               <p>{product.summary}</p>
+              <div className="tag-row" aria-label={`${product.name} tags`}>
+                {product.tags.slice(0, 3).map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
               <dl className="product-meta">
                 <div>
                   <dt>Price</dt>
@@ -675,7 +943,7 @@ function CatalogPage({ onNavigate }) {
                 </div>
                 <div>
                   <dt>Stock</dt>
-                  <dd>{product.stock}</dd>
+                  <dd>{product.stock} · {product.warehouse}</dd>
                 </div>
               </dl>
             </div>
@@ -945,12 +1213,29 @@ function ProductPage({ product, onAddToCart }) {
   return (
     <section className="product-layout" aria-labelledby="product-title">
       <div className="product-detail">
+        <div className={`product-hero-visual ${product.imageTone}`} aria-hidden="true">
+          <span>{product.sku}</span>
+          <strong>{product.brand}</strong>
+        </div>
         <p className="eyebrow">{product.category}</p>
         <h1 id="product-title">{product.name}</h1>
         <p className="lead">{product.summary}</p>
         <p className="price">{formatPrice(product.price)}</p>
+        <div className="tag-row" aria-label="Product tags">
+          {product.tags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
 
         <dl className="product-meta">
+          <div>
+            <dt>SKU</dt>
+            <dd>{product.sku}</dd>
+          </div>
+          <div>
+            <dt>Brand</dt>
+            <dd>{product.brand}</dd>
+          </div>
           <div>
             <dt>Rating</dt>
             <dd>{product.rating} out of 5</dd>
@@ -962,6 +1247,14 @@ function ProductPage({ product, onAddToCart }) {
           <div>
             <dt>Delivery</dt>
             <dd>{product.delivery}</dd>
+          </div>
+          <div>
+            <dt>Return</dt>
+            <dd>{product.returnWindow}</dd>
+          </div>
+          <div>
+            <dt>Warranty</dt>
+            <dd>{product.warranty}</dd>
           </div>
         </dl>
 
@@ -1048,6 +1341,35 @@ function ProductPage({ product, onAddToCart }) {
       </div>
 
       <div className="side-stack">
+        <section className="panel" aria-labelledby="highlights-title">
+          <h2 id="highlights-title">Product Highlights</h2>
+          <ul className="detail-list">
+            {product.highlights.map((highlight) => (
+              <li key={highlight}>{highlight}</li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel" aria-labelledby="specs-title">
+          <h2 id="specs-title">Specifications</h2>
+          <dl className="product-meta">
+            {Object.entries(product.specs).map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+            <div>
+              <dt>Warehouse</dt>
+              <dd>{product.warehouse}</dd>
+            </div>
+            <div>
+              <dt>Reorder level</dt>
+              <dd>{product.reorderLevel}</dd>
+            </div>
+          </dl>
+        </section>
+
         <section className="panel" aria-labelledby="promo-title">
           <h2 id="promo-title">Promo Signup</h2>
           <iframe
@@ -1092,6 +1414,10 @@ function CartPage({ cartCount, items, onNavigate, onRemove }) {
       <div className="hero-copy">
         <p className="eyebrow">Dialog validation lab</p>
         <h1 id="cart-title">Cart</h1>
+        <p className="lead">
+          This page now reads the cart from the POS API after add-to-cart and deletes line items
+          through the same service.
+        </p>
         <p>
           Cart count: <strong data-testid="cart-count">{cartCount}</strong>
         </p>
@@ -1139,6 +1465,13 @@ function CartPage({ cartCount, items, onNavigate, onRemove }) {
                 <dd data-testid="order-total">{formatPrice(subtotal + shippingCost)}</dd>
               </div>
             </dl>
+
+            <section className="mini-panel" aria-label="Cart API evidence">
+              <strong>API evidence</strong>
+              <span>POST /api/cart/items</span>
+              <span>GET /api/cart</span>
+              <span>DELETE /api/cart/items/:id</span>
+            </section>
 
             <button className="button primary" type="button" onClick={() => onNavigate("/checkout")}>
               Proceed to checkout
@@ -1310,6 +1643,28 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
               Place order
             </button>
           </section>
+
+          <section className="panel" aria-labelledby="payment-readiness-title">
+            <h2 id="payment-readiness-title">Payment & Fulfilment Checks</h2>
+            <dl className="product-meta">
+              <div>
+                <dt>Payment route</dt>
+                <dd>{paymentMethod}</dd>
+              </div>
+              <div>
+                <dt>Tax mode</dt>
+                <dd>Included</dd>
+              </div>
+              <div>
+                <dt>Order API</dt>
+                <dd>POST /api/orders</dd>
+              </div>
+              <div>
+                <dt>Session scope</dt>
+                <dd>X-Cart-Session</dd>
+              </div>
+            </dl>
+          </section>
         </form>
       ) : null}
     </section>
@@ -1440,6 +1795,7 @@ function OrdersPage({ ordersList, apiUser, cartSessionId }) {
               <th>Status</th>
               <th>Payment</th>
               <th>Channel</th>
+              <th>Customer</th>
               <th>Total</th>
               <th>Action</th>
             </tr>
@@ -1455,6 +1811,7 @@ function OrdersPage({ ordersList, apiUser, cartSessionId }) {
                 <td>{order.status}</td>
                 <td>{order.payment}</td>
                 <td>{order.channel}</td>
+                <td>{order.customer || "Customer User"}</td>
                 <td>{formatPrice(order.total)}</td>
                 <td>
                   <button
@@ -1488,12 +1845,25 @@ function OrdersPage({ ordersList, apiUser, cartSessionId }) {
               <dt>Payment</dt>
               <dd>{selectedOrder.payment}</dd>
             </div>
+            <div>
+              <dt>SLA</dt>
+              <dd>{selectedOrder.sla || "New API order"}</dd>
+            </div>
+            <div>
+              <dt>Fulfilment</dt>
+              <dd>{selectedOrder.fulfilmentCenter || "Session cart"}</dd>
+            </div>
           </dl>
           <ul className="detail-list" aria-label="Selected order items">
             {selectedOrder.items.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
+          <div className="timeline" aria-label="Order timeline">
+            {(selectedOrder.timeline || ["Cart submitted", "Order API accepted", "Ready for fulfilment"]).map((event) => (
+              <span key={event}>{event}</span>
+            ))}
+          </div>
         </section>
       ) : null}
     </section>
@@ -1523,13 +1893,23 @@ function AdminProductsPage() {
       name: newProduct.name,
       slug: slugify(newProduct.name),
       category: newProduct.category,
+      brand: "Admin Launch",
+      sku: `AD-${slugify(newProduct.name).slice(0, 8).toUpperCase()}`,
       price: Number(newProduct.price),
       rating: 4,
       stock: Number(newProduct.stock),
+      reorderLevel: 5,
+      warehouse: "ADM-NEW",
+      imageTone: "teal",
       colors: ["Black"],
       sizes: ["Standard"],
       summary: `${newProduct.name} added through the admin product workflow.`,
-      delivery: newProduct.featured ? "Priority launch item" : "Ships in 2 days"
+      delivery: newProduct.featured ? "Priority launch item" : "Ships in 2 days",
+      warranty: "Admin-defined warranty",
+      returnWindow: "7-day return",
+      tags: newProduct.featured ? ["Featured", "Admin launch"] : ["Admin launch"],
+      highlights: ["Created from admin workflow", "Visible in inventory filters"],
+      specs: { Source: "Admin form", Status: "Draft-ready" }
     };
     setAdminProducts((existingProducts) => [product, ...existingProducts]);
     setNewProduct({ name: "", category: "Accessories", price: "1999", stock: "10", featured: false });
@@ -1642,60 +2022,69 @@ function AdminProductsPage() {
           <p className="inline-status" role="status" data-testid="admin-product-count">
             Showing {visibleProducts.length} products
           </p>
-          <table>
-            <caption>Admin product inventory</caption>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleProducts.map((product) => (
-                <tr key={product.slug}>
-                  <td>{product.name}</td>
-                  <td>{product.category}</td>
-                  <td>{formatPrice(product.price)}</td>
-                  <td>{product.stock}</td>
-                  <td>
-                    <div className="table-actions" aria-label={`${product.name} actions`}>
-                      <button
-                        className="button secondary compact"
-                        type="button"
-                        aria-label={`Restock ${product.name}`}
-                        onClick={() => updateProduct(product.slug, { stock: product.stock + 5 })}
-                      >
-                        Restock
-                      </button>
-                      <button
-                        className="button secondary compact"
-                        type="button"
-                        aria-label={`Mark down ${product.name}`}
-                        onClick={() =>
-                          updateProduct(product.slug, {
-                            price: Math.max(1, Math.round(product.price * 0.9))
-                          })
-                        }
-                      >
-                        Mark down
-                      </button>
-                      <button
-                        className="button secondary danger compact"
-                        type="button"
-                        aria-label={`Delete ${product.name}`}
-                        onClick={() => deleteProduct(product.slug)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+          <div className="table-scroll">
+            <table>
+              <caption>Admin product inventory</caption>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Warehouse</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {visibleProducts.map((product) => (
+                  <tr key={product.slug}>
+                    <td>{product.name}</td>
+                    <td>{product.sku}</td>
+                    <td>{product.category}</td>
+                    <td>{formatPrice(product.price)}</td>
+                    <td>
+                      {product.stock}
+                      <span className="table-note">Reorder at {product.reorderLevel}</span>
+                    </td>
+                    <td>{product.warehouse}</td>
+                    <td>
+                      <div className="table-actions" aria-label={`${product.name} actions`}>
+                        <button
+                          className="button secondary compact"
+                          type="button"
+                          aria-label={`Restock ${product.name}`}
+                          onClick={() => updateProduct(product.slug, { stock: product.stock + 5 })}
+                        >
+                          Restock
+                        </button>
+                        <button
+                          className="button secondary compact"
+                          type="button"
+                          aria-label={`Mark down ${product.name}`}
+                          onClick={() =>
+                            updateProduct(product.slug, {
+                              price: Math.max(1, Math.round(product.price * 0.9))
+                            })
+                          }
+                        >
+                          Mark down
+                        </button>
+                        <button
+                          className="button secondary danger compact"
+                          type="button"
+                          aria-label={`Delete ${product.name}`}
+                          onClick={() => deleteProduct(product.slug)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
     </section>

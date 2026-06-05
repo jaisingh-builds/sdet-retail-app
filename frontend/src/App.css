@@ -321,12 +321,47 @@ h2 {
   gap: 16px;
 }
 
+.metric-strip.wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
 .metric-strip > div {
   border: 1px solid #dbe2ee;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 18px 38px rgba(37, 48, 72, 0.08);
   padding: 18px;
+}
+
+.metric-strip p {
+  margin: 8px 0 0;
+  color: #4a586f;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.module-row.compact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.module-row.compact-row small {
+  grid-column: 1 / -1;
+  color: #66748a;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.numbered-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 22px;
+  color: #34435b;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .user-chip {
@@ -534,7 +569,79 @@ h2 {
   display: grid;
   gap: 24px;
   align-content: space-between;
-  min-height: 380px;
+  min-height: 520px;
+}
+
+.product-visual,
+.product-hero-visual {
+  display: grid;
+  align-content: end;
+  min-height: 150px;
+  border: 1px solid #d5deeb;
+  border-radius: 8px;
+  padding: 18px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #125e6b, #263b5e);
+  overflow: hidden;
+}
+
+.product-hero-visual {
+  min-height: 220px;
+  margin-bottom: 22px;
+}
+
+.product-visual span,
+.product-hero-visual span {
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.product-visual strong,
+.product-hero-visual strong {
+  margin-top: 8px;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.product-visual.green,
+.product-hero-visual.green {
+  background: linear-gradient(135deg, #285f46, #0f5360);
+}
+
+.product-visual.slate,
+.product-hero-visual.slate {
+  background: linear-gradient(135deg, #243149, #5a6475);
+}
+
+.product-visual.blue,
+.product-hero-visual.blue,
+.product-visual.cyan,
+.product-hero-visual.cyan {
+  background: linear-gradient(135deg, #0f5360, #2d74a8);
+}
+
+.product-visual.purple,
+.product-hero-visual.purple,
+.product-visual.pink,
+.product-hero-visual.pink {
+  background: linear-gradient(135deg, #6d3f7c, #b15c73);
+}
+
+.product-visual.yellow,
+.product-hero-visual.yellow,
+.product-visual.amber,
+.product-hero-visual.amber,
+.product-visual.orange,
+.product-hero-visual.orange {
+  background: linear-gradient(135deg, #9f5815, #d19a2a);
+}
+
+.product-visual.rose,
+.product-hero-visual.rose,
+.product-visual.red,
+.product-hero-visual.red {
+  background: linear-gradient(135deg, #8f2c23, #bd6a55);
 }
 
 .product-card p,
@@ -546,6 +653,23 @@ h2 {
 .price {
   color: #172033;
   font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+
+.tag-row span {
+  border: 1px solid #b9d1d7;
+  border-radius: 999px;
+  background: #f3fafb;
+  color: #0f5360;
+  padding: 6px 10px;
+  font-size: 0.78rem;
   font-weight: 900;
 }
 
@@ -714,6 +838,10 @@ h2 {
   align-items: start;
 }
 
+.checkout-layout .panel:last-child {
+  grid-column: 1 / -1;
+}
+
 .exercise-frame {
   width: 100%;
   min-height: 360px;
@@ -783,6 +911,31 @@ h2 {
   font-size: 1.4rem;
 }
 
+.mini-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+  border: 1px solid #dbe2ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.mini-panel strong {
+  flex-basis: 100%;
+}
+
+.mini-panel span {
+  border: 1px solid #c6d2e3;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 6px 10px;
+  color: #34435b;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
 .orders-page {
   display: grid;
   gap: 28px;
@@ -835,6 +988,15 @@ table {
   border-radius: 8px;
 }
 
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll table {
+  min-width: 840px;
+}
+
 caption {
   padding: 10px 0;
   color: #4a586f;
@@ -879,6 +1041,19 @@ th {
   font-weight: 800;
 }
 
+.timeline {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.timeline span {
+  border-left: 3px solid #125e6b;
+  padding: 8px 0 8px 14px;
+  color: #34435b;
+  font-weight: 800;
+}
+
 tr:last-child td {
   border-bottom: 0;
 }
@@ -917,6 +1092,7 @@ tr:last-child td {
   .catalog-page,
   .catalog-filters,
   .metric-strip,
+  .metric-strip.wide,
   .orders-summary,
   .checkout-layout,
   .admin-layout,

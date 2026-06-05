@@ -23,7 +23,13 @@ let products = [
   { id: 103, name: "Noise Canceling Headphones", category: "Electronics", price: 7999, stock: 7 },
   { id: 104, name: "Insulated Water Bottle", category: "Fitness", price: 999, stock: 42 },
   { id: 105, name: "Yoga Mat", category: "Fitness", price: 1499, stock: 23 },
-  { id: 106, name: "Rain Jacket", category: "Apparel", price: 2799, stock: 9 }
+  { id: 106, name: "Rain Jacket", category: "Apparel", price: 2799, stock: 9 },
+  { id: 107, name: "Smart Desk Lamp", category: "Workspace", price: 2199, stock: 16 },
+  { id: 108, name: "Organic Snack Box", category: "Grocery", price: 1199, stock: 35 },
+  { id: 109, name: "Ceramic Dinner Set", category: "Home", price: 3899, stock: 6 },
+  { id: 110, name: "Resistance Bands Kit", category: "Fitness", price: 1299, stock: 31 },
+  { id: 111, name: "Skin Care Travel Kit", category: "Beauty", price: 2499, stock: 14 },
+  { id: 112, name: "Kids Learning Tablet", category: "Electronics", price: 9999, stock: 5 }
 ];
 
 let cart = [];
