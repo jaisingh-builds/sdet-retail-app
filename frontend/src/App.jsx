@@ -357,6 +357,18 @@ const fulfilmentSignals = [
   { label: "Shipping estimate", value: "Iframe", detail: "Third-party widget exercise" }
 ];
 
+const experienceHighlights = [
+  { label: "Journey coverage", value: "UI + API", detail: "Search, cart, checkout, order evidence" },
+  { label: "Quality gates", value: "A11y", detail: "Axe scans with critical and serious gates" },
+  { label: "Debug labs", value: "Trace", detail: "Network, console, screenshots, video, traces" }
+];
+
+const retailWorkflows = [
+  { title: "Customer journey", detail: "Search a product, configure options, add to cart, and place an order." },
+  { title: "Operations review", detail: "Inspect orders, payment state, fulfilment signals, and line-item evidence." },
+  { title: "Quality engineering", detail: "Use locators, network waits, a11y scans, and repeat runs to prove stability." }
+];
+
 function formatPrice(amount) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
@@ -799,19 +811,31 @@ function HomePage({ currentUser, onLogout }) {
           </div>
         </div>
 
-        <div className="status-panel" aria-label="Application readiness summary">
-          <div>
-            <span className="status-label">Environment</span>
-            <strong>Classroom local</strong>
-          </div>
-          <div>
-            <span className="status-label">Frontend</span>
-            <strong>ReactJS + Vite</strong>
-          </div>
-          <div>
-            <span className="status-label">Day 3 state</span>
+        <div className="status-panel command-panel" aria-label="Application readiness summary">
+          <div className="command-header">
+            <span className="status-label">Retail command center</span>
             <strong>{dayState}</strong>
           </div>
+          <div className="command-grid">
+            <div>
+              <span className="status-label">Environment</span>
+              <strong>Classroom local</strong>
+            </div>
+            <div>
+              <span className="status-label">Frontend</span>
+              <strong>ReactJS + Vite</strong>
+            </div>
+            <div>
+              <span className="status-label">API mode</span>
+              <strong>POS backed</strong>
+            </div>
+          </div>
+          <ol className="signal-rail" aria-label="Current release flow">
+            <li>Catalog search</li>
+            <li>Cart API</li>
+            <li>Checkout gate</li>
+            <li>Order review</li>
+          </ol>
         </div>
       </section>
 
@@ -848,6 +872,16 @@ function HomePage({ currentUser, onLogout }) {
         ))}
       </section>
 
+      <section className="experience-strip" aria-label="Training experience highlights">
+        {experienceHighlights.map((item) => (
+          <article key={item.label}>
+            <span className="status-label">{item.label}</span>
+            <strong>{item.value}</strong>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </section>
+
       <section className="content-grid" aria-label="Service readiness">
         <article className="panel">
           <h2>Fulfilment Signals</h2>
@@ -871,6 +905,16 @@ function HomePage({ currentUser, onLogout }) {
             <li>Review order history and evidence.</li>
           </ol>
         </article>
+      </section>
+
+      <section className="workflow-band" aria-label="Retail workflow map">
+        {retailWorkflows.map((workflow, index) => (
+          <article key={workflow.title}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <h2>{workflow.title}</h2>
+            <p>{workflow.detail}</p>
+          </article>
+        ))}
       </section>
     </>
   );
@@ -1011,9 +1055,12 @@ function CatalogPage({ onNavigate }) {
         </label>
       </form>
 
-      <p className="inline-status" role="status" data-testid="catalog-result-count">
-        {searchStatus === "loading" ? "Searching products..." : `Showing ${visibleProducts.length} ${resultLabel}`}
-      </p>
+      <div className="catalog-toolbar">
+        <p className="inline-status" role="status" data-testid="catalog-result-count">
+          {searchStatus === "loading" ? "Searching products..." : `Showing ${visibleProducts.length} ${resultLabel}`}
+        </p>
+        <span>Search is API-backed. Sorting and pagination stay client-side for UI practice.</span>
+      </div>
 
       {searchStatus === "error" ? (
         <div className="alert" role="alert">Product search failed. Check the POS API.</div>
@@ -1070,6 +1117,10 @@ function CatalogPage({ onNavigate }) {
                   <dd>{product.stock} · {product.warehouse}</dd>
                 </div>
               </dl>
+            </div>
+            <div className="card-footer">
+              <span>{product.delivery}</span>
+              <span>{product.returnWindow}</span>
             </div>
             <a
               className="button primary"
@@ -1485,6 +1536,12 @@ function ProductPage({ product, onAddToCart }) {
           Selected {product.name}: {color}, {size}, quantity {quantity}, {fulfilment}
         </p>
         {addError ? <div className="alert" role="alert">{addError}</div> : null}
+        <section className="mini-panel" aria-label="Product quality signals">
+          <strong>Quality signals</strong>
+          <span>Stock validated</span>
+          <span>Max 5 per line</span>
+          <span>Cart API backed</span>
+        </section>
       </div>
 
       <div className="side-stack">
@@ -1638,6 +1695,12 @@ function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearC
             <button className="button secondary" type="button" onClick={onClearCart}>
               Start fresh cart
             </button>
+            <section className="mini-panel" aria-label="Checkout readiness">
+              <strong>Checkout readiness</strong>
+              <span>Items verified</span>
+              <span>Totals recalculated</span>
+              <span>Session isolated</span>
+            </section>
           </>
         ) : null}
 
