@@ -877,10 +877,13 @@ function CatalogPage({ onNavigate }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("Recommended");
   const [pageNumber, setPageNumber] = useState(1);
+  const [apiProductIds, setApiProductIds] = useState(products.map((product) => product.id));
+  const [searchStatus, setSearchStatus] = useState("ready");
   const categories = ["All", ...new Set(products.map((product) => product.category))];
   const pageSize = 3;
 
   const visibleProducts = products
+    .filter((product) => apiProductIds.includes(product.id))
     .filter((product) => category === "All" || product.category === category)
     .filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((first, second) => {
@@ -909,6 +912,44 @@ function CatalogPage({ onNavigate }) {
   useEffect(() => {
     setPageNumber(1);
   }, [category, searchTerm, sortBy]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const query = new URLSearchParams();
+
+    if (searchTerm.trim()) {
+      query.set("search", searchTerm.trim());
+    }
+
+    if (category !== "All") {
+      query.set("category", category);
+    }
+
+    setSearchStatus("loading");
+    fetch(`${apiBaseUrl}/api/products?${query.toString()}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Product search failed");
+        }
+        return response.json();
+      })
+      .then((body) => {
+        if (!cancelled) {
+          setApiProductIds(body.items.map((product) => product.id));
+          setSearchStatus("ready");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setApiProductIds([]);
+          setSearchStatus("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [category, searchTerm]);
 
   return (
     <section className="catalog-page" aria-labelledby="catalog-title">
@@ -957,8 +998,12 @@ function CatalogPage({ onNavigate }) {
       </form>
 
       <p className="inline-status" role="status" data-testid="catalog-result-count">
-        Showing {visibleProducts.length} {resultLabel}
+        {searchStatus === "loading" ? "Searching products..." : `Showing ${visibleProducts.length} ${resultLabel}`}
       </p>
+
+      {searchStatus === "error" ? (
+        <div className="alert" role="alert">Product search failed. Check the POS API.</div>
+      ) : null}
 
       <section className="metric-strip" aria-label="Catalog inventory signals">
         <div>
@@ -977,7 +1022,12 @@ function CatalogPage({ onNavigate }) {
 
       <div className="product-grid" aria-label="Product results">
         {pagedProducts.map((product) => (
-          <article className="product-card" aria-label={product.name} key={product.slug}>
+          <article
+            className="product-card"
+            aria-label={product.name}
+            data-testid="product-card"
+            key={product.slug}
+          >
             <div className={`product-visual ${product.imageTone}`} aria-hidden="true">
               <span>{product.category}</span>
               <strong>{product.brand}</strong>
@@ -1020,6 +1070,13 @@ function CatalogPage({ onNavigate }) {
           </article>
         ))}
       </div>
+
+      {searchStatus === "ready" && visibleProducts.length === 0 ? (
+        <section className="panel" data-testid="empty-search" role="status">
+          <h2>No products found</h2>
+          <p>Try a different search term or category.</p>
+        </section>
+      ) : null}
 
       <nav className="pagination-bar" aria-label="Catalog pagination">
         <button
@@ -1351,7 +1408,9 @@ function ProductPage({ product, onAddToCart }) {
             max="5"
             type="number"
             value={quantity}
-            onChange={(event) => setQuantity(Number(event.target.value))}
+            onChange={(event) =>
+              setQuantity(Math.max(1, Math.min(5, Number(event.target.value) || 1)))
+            }
           />
         </label>
 
