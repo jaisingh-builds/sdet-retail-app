@@ -18,10 +18,12 @@ const users = [
 ];
 
 let products = [
-  { id: 101, name: "Wireless Mouse", category: "Accessories", price: 799, stock: 25 },
-  { id: 102, name: "USB-C Keyboard", category: "Accessories", price: 1499, stock: 12 },
-  { id: 103, name: "Noise Cancelling Headset", category: "Audio", price: 3499, stock: 8 },
-  { id: 104, name: "Laptop Stand", category: "Workspace", price: 1199, stock: 15 }
+  { id: 101, name: "Running Shoes", category: "Footwear", price: 4499, stock: 18 },
+  { id: 102, name: "Travel Backpack", category: "Bags", price: 3299, stock: 11 },
+  { id: 103, name: "Noise Canceling Headphones", category: "Electronics", price: 7999, stock: 7 },
+  { id: 104, name: "Insulated Water Bottle", category: "Fitness", price: 999, stock: 42 },
+  { id: 105, name: "Yoga Mat", category: "Fitness", price: 1499, stock: 23 },
+  { id: 106, name: "Rain Jacket", category: "Apparel", price: 2799, stock: 9 }
 ];
 
 let cart = [];
@@ -51,6 +53,10 @@ function requireAdmin(req, res, next) {
     return res.status(403).json({ message: "Admin role required" });
   }
   next();
+}
+
+function ownerKey(req) {
+  return req.headers["x-cart-session"] || `user-${req.user.id}`;
 }
 
 app.get("/api/health", (_req, res) => {
@@ -129,28 +135,37 @@ app.get("/api/products/:id", (req, res) => {
 });
 
 app.post("/api/cart/items", requireAuth, (req, res) => {
-  const { productId, quantity = 1 } = req.body;
+  const { productId, quantity = 1, size = "Standard", color = "Default", fulfilment = "Home delivery" } = req.body;
   const product = products.find((item) => item.id === Number(productId));
 
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
 
-  const item = { id: cart.length + 1, userId: req.user.id, productId: product.id, quantity };
+  const item = {
+    id: cart.length + 1,
+    userId: req.user.id,
+    ownerKey: ownerKey(req),
+    productId: product.id,
+    quantity,
+    size,
+    color,
+    fulfilment
+  };
   cart.push(item);
-  res.status(201).json({ id: item.id, productId: product.id, quantity });
+  res.status(201).json({ ...item, product });
 });
 
 app.get("/api/cart", requireAuth, (req, res) => {
   const items = cart
-    .filter((item) => item.userId === req.user.id)
+    .filter((item) => item.ownerKey === ownerKey(req))
     .map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) }));
   const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   res.json({ items, total });
 });
 
 app.put("/api/cart/items/:id", requireAuth, (req, res) => {
-  const item = cart.find((candidate) => candidate.id === Number(req.params.id) && candidate.userId === req.user.id);
+  const item = cart.find((candidate) => candidate.id === Number(req.params.id) && candidate.ownerKey === ownerKey(req));
   if (!item) {
     return res.status(404).json({ message: "Cart item not found" });
   }
@@ -161,7 +176,7 @@ app.put("/api/cart/items/:id", requireAuth, (req, res) => {
 
 app.delete("/api/cart/items/:id", requireAuth, (req, res) => {
   const existingCount = cart.length;
-  cart = cart.filter((item) => !(item.id === Number(req.params.id) && item.userId === req.user.id));
+  cart = cart.filter((item) => !(item.id === Number(req.params.id) && item.ownerKey === ownerKey(req)));
 
   if (cart.length === existingCount) {
     return res.status(404).json({ message: "Cart item not found" });
@@ -175,31 +190,51 @@ app.post("/api/orders", requireAuth, (req, res) => {
     return res.status(502).json({ message: "Payment provider timeout" });
   }
 
-  const items = cart.filter((item) => item.userId === req.user.id);
-  const total = items.reduce((sum, item) => {
+  const orderOwnerKey = ownerKey(req);
+  const items = cart.filter((item) => item.ownerKey === orderOwnerKey);
+  const subtotal = items.reduce((sum, item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
     return sum + product.price * item.quantity;
   }, 0);
+  const shipping = Number(req.body.shipping || 0);
+  const discount = Number(req.body.discount || 0);
+  const total = subtotal + shipping - discount;
+  const orderNumber = `ORD-${1008 + orders.length + items.length}`;
+  const paymentMethod = req.body.paymentMethod || "Credit card";
 
   const order = {
     id: orders.length + 5001,
+    orderNumber,
     userId: req.user.id,
-    items,
+    ownerKey: orderOwnerKey,
+    placedOn: new Date().toISOString().slice(0, 10),
+    status: paymentMethod === "Cash on delivery" ? "Payment pending" : "Confirmed",
+    payment: paymentMethod === "Cash on delivery" ? "Pending" : "Paid",
+    paymentMethod,
+    channel: "Web",
+    items: items.map((item) => ({
+      ...item,
+      product: products.find((product) => product.id === item.productId)
+    })),
+    subtotal,
+    shipping,
+    discount,
     total: process.env.BUG_WRONG_ORDER_TOTAL === "true" ? total + 99 : total,
-    status: "CONFIRMED"
+    deliverySlot: req.body.deliverySlot,
+    address: req.body.address
   };
 
   orders.push(order);
-  cart = cart.filter((item) => item.userId !== req.user.id);
+  cart = cart.filter((item) => item.ownerKey !== orderOwnerKey);
   res.status(201).json(order);
 });
 
 app.get("/api/orders", requireAuth, (req, res) => {
-  res.json({ items: orders.filter((item) => item.userId === req.user.id) });
+  res.json({ items: orders.filter((item) => item.ownerKey === ownerKey(req)) });
 });
 
 app.get("/api/orders/:id", requireAuth, (req, res) => {
-  const order = orders.find((item) => item.id === Number(req.params.id) && item.userId === req.user.id);
+  const order = orders.find((item) => item.id === Number(req.params.id) && item.ownerKey === ownerKey(req));
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
   }

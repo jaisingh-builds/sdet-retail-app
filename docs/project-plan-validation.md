@@ -11,9 +11,9 @@ This snapshot compares the current classroom app with `UST_SDET_Project_Plan.md`
 | Home | Smoke target, route navigation, signed-in state, module dashboard. |
 | Catalog | Search, category filter, sorting, pagination, inventory signals, product cards. |
 | Product detail | URL params, size/color/quantity/fulfilment controls, iframe promo widget, add-to-cart. |
-| Cart | Cart lines, totals, shipping method, confirmation dialog for removal. |
-| Checkout | Address, slot, payment method, coupon, confirmation, created order handoff. |
-| Orders | Status filter, order value summary, order table, selected-order detail panel. |
+| Cart | API-backed cart creation/read/delete, cart lines, totals, shipping method, confirmation dialog. |
+| Checkout | API-backed order creation, address, slot, payment method, coupon, confirmation. |
+| Orders | API-backed order retrieval, status filter, order value summary, order table, selected-order detail panel. |
 | Profile | Authenticated `/api/users/me` load and save, validation, upload locator practice. |
 | Admin products | Create, filter, restock, mark down, delete, inventory table. |
 | Admin orders | Status and channel filters, fulfilment queue table. |
@@ -23,7 +23,7 @@ This snapshot compares the current classroom app with `UST_SDET_Project_Plan.md`
 
 | Plan expectation | Current state | Next meaningful step |
 | --- | --- | --- |
-| API persistence/reset | Express in-memory service exists. | Add reset endpoint/script before broader API labs. |
+| API persistence/reset | Express in-memory service now stores cart and order data for the current process. | Add reset endpoint/script before broader API labs. |
 | OpenAPI completeness | Core endpoints are documented, but schemas are light. | Add request/response schemas and examples. |
 | Admin CRUD API parity | Backend supports create/update/delete; frontend now demonstrates equivalent actions locally. | Wire frontend admin actions to API after auth/role flows settle. |
 | Checkout downstream behavior | UI has deterministic order confirmation; backend has defect flags. | Connect checkout to payment WireMock mappings. |

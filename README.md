@@ -65,6 +65,11 @@ The current ReactJS starter includes classroom-ready pages for:
 - Admin product creation/filtering and admin order queue filtering.
 - Frames, accessibility, and debugging labs for Week 1 advanced exercises.
 
+The product-to-order journey is API-backed: add-to-cart calls `POST /api/cart/items`,
+cart review calls `GET /api/cart`, checkout calls `POST /api/orders`, and the orders page calls
+`GET /api/orders`. The frontend sends a per-browser `X-Cart-Session` header so classroom tests can
+run safely in parallel without sharing cart state.
+
 ## Current Starter Backend
 
 ```bash

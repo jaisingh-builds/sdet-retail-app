@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 const apiBaseUrl = import.meta.env.VITE_POS_API_URL || "http://localhost:4000";
+const classroomCustomer = {
+  email: "customer@example.com",
+  name: "Customer User",
+  role: "customer",
+  token: "demo-token-1-customer"
+};
 
 const navItems = [
   { label: "Home", href: "/home", status: "Ready" },
@@ -19,6 +25,7 @@ const navItems = [
 
 const products = [
   {
+    id: 101,
     name: "Running Shoes",
     slug: "running-shoes",
     category: "Footwear",
@@ -31,6 +38,7 @@ const products = [
     delivery: "Ships tomorrow"
   },
   {
+    id: 102,
     name: "Travel Backpack",
     slug: "travel-backpack",
     category: "Bags",
@@ -43,6 +51,7 @@ const products = [
     delivery: "Ships in 2 days"
   },
   {
+    id: 103,
     name: "Noise Canceling Headphones",
     slug: "noise-canceling-headphones",
     category: "Electronics",
@@ -55,6 +64,7 @@ const products = [
     delivery: "Limited stock"
   },
   {
+    id: 104,
     name: "Insulated Water Bottle",
     slug: "insulated-water-bottle",
     category: "Fitness",
@@ -67,6 +77,7 @@ const products = [
     delivery: "Same-day pickup"
   },
   {
+    id: 105,
     name: "Yoga Mat",
     slug: "yoga-mat",
     category: "Fitness",
@@ -79,6 +90,7 @@ const products = [
     delivery: "Ships tomorrow"
   },
   {
+    id: 106,
     name: "Rain Jacket",
     slug: "rain-jacket",
     category: "Apparel",
@@ -132,6 +144,47 @@ function findProduct(slug) {
 
 function slugify(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function readCartSessionId() {
+  const existing = window.sessionStorage.getItem("sdet-retail-cart-session");
+  if (existing) {
+    return existing;
+  }
+
+  const sessionId = `cart-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  window.sessionStorage.setItem("sdet-retail-cart-session", sessionId);
+  return sessionId;
+}
+
+function mapApiCartItem(item) {
+  const product = item.product || products.find((candidate) => candidate.id === item.productId);
+
+  return {
+    id: item.id,
+    productId: item.productId,
+    slug: slugify(product?.name || "product"),
+    name: product?.name || "Product",
+    price: product?.price || 0,
+    size: item.size || "Standard",
+    color: item.color || "Default",
+    quantity: item.quantity,
+    fulfilment: item.fulfilment || "Home delivery"
+  };
+}
+
+function mapApiOrder(order) {
+  const items = order.items?.map((item) => item.product?.name || item.name || "Product") || [];
+
+  return {
+    id: order.orderNumber || `ORD-${order.id}`,
+    placedOn: order.placedOn,
+    status: order.status,
+    payment: order.payment,
+    total: order.total,
+    items,
+    channel: order.channel || "Web"
+  };
 }
 
 const promoFrameMarkup = `
@@ -218,6 +271,8 @@ function App() {
   const [currentUser, setCurrentUser] = useState(readStoredUser);
   const [cartItems, setCartItems] = useState([]);
   const [createdOrders, setCreatedOrders] = useState([]);
+  const [cartSessionId] = useState(readCartSessionId);
+  const apiUser = currentUser || classroomCustomer;
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const allOrders = [...createdOrders, ...orders];
 
@@ -291,25 +346,35 @@ function App() {
         ) : currentPath.startsWith("/product/") ? (
           <ProductPage
             product={findProduct(currentPath.replace("/product/", ""))}
-            onAddToCart={(item) => {
-              setCartItems((existingItems) => {
-                const existingItem = existingItems.find(
-                  (cartItem) =>
-                    cartItem.slug === item.slug &&
-                    cartItem.size === item.size &&
-                    cartItem.color === item.color
-                );
-
-                if (!existingItem) {
-                  return [...existingItems, item];
-                }
-
-                return existingItems.map((cartItem) =>
-                  cartItem === existingItem
-                    ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
-                    : cartItem
-                );
+            onAddToCart={async (item) => {
+              const response = await fetch(`${apiBaseUrl}/api/cart/items`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${apiUser.token}`,
+                  "Content-Type": "application/json",
+                  "X-Cart-Session": cartSessionId
+                },
+                body: JSON.stringify({
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  size: item.size,
+                  color: item.color,
+                  fulfilment: item.fulfilment
+                })
               });
+
+              if (!response.ok) {
+                throw new Error("Cart API failed");
+              }
+
+              const cartResponse = await fetch(`${apiBaseUrl}/api/cart`, {
+                headers: {
+                  Authorization: `Bearer ${apiUser.token}`,
+                  "X-Cart-Session": cartSessionId
+                }
+              });
+              const cartBody = await cartResponse.json();
+              setCartItems(cartBody.items.map(mapApiCartItem));
               navigate("/cart");
             }}
           />
@@ -318,24 +383,51 @@ function App() {
             cartCount={cartCount}
             items={cartItems}
             onNavigate={navigate}
-            onRemove={(slug) =>
-              setCartItems((existingItems) => existingItems.filter((item) => item.slug !== slug))
-            }
+            onRemove={async (item) => {
+              if (item.id) {
+                await fetch(`${apiBaseUrl}/api/cart/items/${item.id}`, {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${apiUser.token}`,
+                    "X-Cart-Session": cartSessionId
+                  }
+                });
+              }
+              setCartItems((existingItems) =>
+                existingItems.filter((cartItem) => cartItem.id !== item.id)
+              );
+            }}
           />
         ) : currentPath === "/checkout" ? (
           <CheckoutPage
-            currentUser={currentUser}
+            currentUser={apiUser}
             items={cartItems}
             onNavigate={navigate}
-            onPlaceOrder={(order) => {
-              setCreatedOrders((existingOrders) => [order, ...existingOrders]);
+            onPlaceOrder={async (orderRequest) => {
+              const response = await fetch(`${apiBaseUrl}/api/orders`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${apiUser.token}`,
+                  "Content-Type": "application/json",
+                  "X-Cart-Session": cartSessionId
+                },
+                body: JSON.stringify(orderRequest)
+              });
+
+              if (!response.ok) {
+                throw new Error("Order API failed");
+              }
+
+              const apiOrder = await response.json();
+              setCreatedOrders((existingOrders) => [mapApiOrder(apiOrder), ...existingOrders]);
               setCartItems([]);
+              return mapApiOrder(apiOrder);
             }}
           />
         ) : currentPath === "/size-guide" ? (
           <SizeGuidePage />
         ) : currentPath === "/orders" ? (
-          <OrdersPage ordersList={allOrders} />
+          <OrdersPage ordersList={allOrders} apiUser={apiUser} cartSessionId={cartSessionId} />
         ) : currentPath === "/admin/products" ? (
           <AdminProductsPage />
         ) : currentPath === "/admin/orders" ? (
@@ -932,6 +1024,7 @@ function ProductPage({ product, onAddToCart }) {
             type="button"
             onClick={() =>
               onAddToCart({
+                productId: product.id,
                 slug: product.slug,
                 name: product.name,
                 price: product.price,
@@ -990,7 +1083,7 @@ function CartPage({ cartCount, items, onNavigate, onRemove }) {
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
   const removeItem = (item) => {
     if (window.confirm(`Remove ${item.name} from cart?`)) {
-      onRemove(item.slug);
+      onRemove(item);
     }
   };
 
@@ -1070,6 +1163,7 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
   const [address, setAddress] = useState("UST Campus, Bengaluru");
   const [coupon, setCoupon] = useState("");
   const [confirmation, setConfirmation] = useState(null);
+  const [submitError, setSubmitError] = useState("");
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
   const shipping = items.length ? 199 : 0;
   const discount = coupon.trim().toUpperCase() === "UST10" ? Math.round(subtotal * 0.1) : 0;
@@ -1077,17 +1171,17 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
 
   const placeOrder = (event) => {
     event.preventDefault();
-    const order = {
-      id: `ORD-${1008 + items.length}`,
-      placedOn: "2026-06-04",
-      status: paymentMethod === "Cash on delivery" ? "Payment pending" : "Confirmed",
-      payment: paymentMethod === "Cash on delivery" ? "Pending" : "Paid",
-      total,
-      items: items.map((item) => item.name),
-      channel: "Web"
-    };
-    onPlaceOrder(order);
-    setConfirmation(order);
+    setSubmitError("");
+    onPlaceOrder({
+      paymentMethod,
+      deliverySlot,
+      address,
+      coupon,
+      shipping,
+      discount
+    })
+      .then((order) => setConfirmation(order))
+      .catch(() => setSubmitError("Order service failed. Check the API and retry."));
   };
 
   return (
@@ -1113,6 +1207,8 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
           </button>
         </section>
       ) : null}
+
+      {submitError ? <div className="alert" role="alert">{submitError}</div> : null}
 
       {!confirmation && items.length === 0 ? (
         <section className="panel" aria-labelledby="empty-checkout-title">
@@ -1253,13 +1349,17 @@ function SizeGuidePage() {
   );
 }
 
-function OrdersPage({ ordersList }) {
+function OrdersPage({ ordersList, apiUser, cartSessionId }) {
   const [statusFilter, setStatusFilter] = useState("All");
+  const [apiOrders, setApiOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(ordersList[0]?.id || "");
+  const combinedOrders = [...apiOrders, ...ordersList].filter(
+    (order, index, list) => list.findIndex((candidate) => candidate.id === order.id) === index
+  );
   const visibleOrders =
-    statusFilter === "All" ? ordersList : ordersList.filter((order) => order.status === statusFilter);
+    statusFilter === "All" ? combinedOrders : combinedOrders.filter((order) => order.status === statusFilter);
   const totalOrderValue = visibleOrders.reduce((total, order) => total + order.total, 0);
-  const statusOptions = ["All", ...new Set(ordersList.map((order) => order.status))];
+  const statusOptions = ["All", ...new Set(combinedOrders.map((order) => order.status))];
   const selectedOrder =
     visibleOrders.find((order) => order.id === selectedOrderId) || visibleOrders[0] || null;
 
@@ -1268,6 +1368,33 @@ function OrdersPage({ ordersList }) {
       setSelectedOrderId(visibleOrders[0]?.id || "");
     }
   }, [selectedOrderId, visibleOrders]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOrders() {
+      const response = await fetch(`${apiBaseUrl}/api/orders`, {
+        headers: {
+          Authorization: `Bearer ${apiUser.token}`,
+          "X-Cart-Session": cartSessionId
+        }
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const body = await response.json();
+      if (!cancelled) {
+        setApiOrders(body.items.map(mapApiOrder));
+      }
+    }
+
+    loadOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUser.token, cartSessionId]);
 
   return (
     <section className="orders-page" aria-labelledby="orders-title">
