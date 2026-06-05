@@ -80,8 +80,14 @@ paths:
       security:
         - bearerAuth: []
       responses:
+        "200":
+          description: Existing matching cart item quantity updated
         "201":
           description: Cart item added
+        "400":
+          description: Invalid quantity
+        "409":
+          description: Stock or quantity limit conflict
   /api/cart/items/{id}:
     put:
       summary: Update cart item quantity
@@ -96,8 +102,12 @@ paths:
       responses:
         "200":
           description: Cart item updated
+        "400":
+          description: Invalid quantity
         "404":
           description: Cart item not found
+        "409":
+          description: Stock or quantity limit conflict
     delete:
       summary: Delete cart item
       security:
@@ -143,6 +153,8 @@ paths:
       responses:
         "201":
           description: Order created
+        "400":
+          description: Empty cart or invalid totals
   /api/orders/{id}:
     get:
       summary: Get order

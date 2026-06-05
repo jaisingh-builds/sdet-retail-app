@@ -34,9 +34,11 @@ let products = [
 
 let cart = [];
 let orders = [];
+let nextCartItemId = 1;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const tokenFor = (user) => `demo-token-${user.id}-${user.role}`;
+const maxCartQuantity = 5;
 
 function currentUser(req) {
   const auth = req.headers.authorization || "";
@@ -63,6 +65,22 @@ function requireAdmin(req, res, next) {
 
 function ownerKey(req) {
   return req.headers["x-cart-session"] || `user-${req.user.id}`;
+}
+
+function parseQuantity(value, fallback = 1) {
+  const quantity = Number(value ?? fallback);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > maxCartQuantity) {
+    return null;
+  }
+  return quantity;
+}
+
+function productForCartItem(item) {
+  return products.find((product) => product.id === item.productId);
+}
+
+function mapCartItem(item) {
+  return { ...item, product: productForCartItem(item) };
 }
 
 app.get("/api/health", (_req, res) => {
@@ -143,29 +161,63 @@ app.get("/api/products/:id", (req, res) => {
 app.post("/api/cart/items", requireAuth, (req, res) => {
   const { productId, quantity = 1, size = "Standard", color = "Default", fulfilment = "Home delivery" } = req.body;
   const product = products.find((item) => item.id === Number(productId));
+  const requestedQuantity = parseQuantity(quantity);
 
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
 
+  if (!requestedQuantity) {
+    return res.status(400).json({ message: `Quantity must be an integer between 1 and ${maxCartQuantity}` });
+  }
+
+  if (requestedQuantity > product.stock) {
+    return res.status(409).json({ message: "Requested quantity exceeds available stock" });
+  }
+
+  const cartOwnerKey = ownerKey(req);
+  const existingItem = cart.find(
+    (item) =>
+      item.ownerKey === cartOwnerKey &&
+      item.productId === product.id &&
+      item.size === size &&
+      item.color === color &&
+      item.fulfilment === fulfilment
+  );
+
+  if (existingItem) {
+    const nextQuantity = existingItem.quantity + requestedQuantity;
+    if (nextQuantity > maxCartQuantity) {
+      return res.status(409).json({ message: `Maximum quantity per cart line is ${maxCartQuantity}` });
+    }
+
+    if (nextQuantity > product.stock) {
+      return res.status(409).json({ message: "Requested quantity exceeds available stock" });
+    }
+
+    existingItem.quantity = nextQuantity;
+    return res.status(200).json(mapCartItem(existingItem));
+  }
+
   const item = {
-    id: cart.length + 1,
+    id: nextCartItemId,
     userId: req.user.id,
-    ownerKey: ownerKey(req),
+    ownerKey: cartOwnerKey,
     productId: product.id,
-    quantity,
+    quantity: requestedQuantity,
     size,
     color,
     fulfilment
   };
+  nextCartItemId += 1;
   cart.push(item);
-  res.status(201).json({ ...item, product });
+  res.status(201).json(mapCartItem(item));
 });
 
 app.get("/api/cart", requireAuth, (req, res) => {
   const items = cart
     .filter((item) => item.ownerKey === ownerKey(req))
-    .map((item) => ({ ...item, product: products.find((product) => product.id === item.productId) }));
+    .map(mapCartItem);
   const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   res.json({ items, total });
 });
@@ -181,8 +233,18 @@ app.put("/api/cart/items/:id", requireAuth, (req, res) => {
     return res.status(404).json({ message: "Cart item not found" });
   }
 
-  item.quantity = Number(req.body.quantity || item.quantity);
-  res.json(item);
+  const quantity = parseQuantity(req.body.quantity, item.quantity);
+  const product = productForCartItem(item);
+  if (!quantity) {
+    return res.status(400).json({ message: `Quantity must be an integer between 1 and ${maxCartQuantity}` });
+  }
+
+  if (quantity > product.stock) {
+    return res.status(409).json({ message: "Requested quantity exceeds available stock" });
+  }
+
+  item.quantity = quantity;
+  res.json(mapCartItem(item));
 });
 
 app.delete("/api/cart/items/:id", requireAuth, (req, res) => {
@@ -203,12 +265,20 @@ app.post("/api/orders", requireAuth, (req, res) => {
 
   const orderOwnerKey = ownerKey(req);
   const items = cart.filter((item) => item.ownerKey === orderOwnerKey);
+  if (items.length === 0) {
+    return res.status(400).json({ message: "Cannot create an order from an empty cart" });
+  }
+
   const subtotal = items.reduce((sum, item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
     return sum + product.price * item.quantity;
   }, 0);
   const shipping = Number(req.body.shipping || 0);
   const discount = Number(req.body.discount || 0);
+  if (shipping < 0 || discount < 0 || discount > subtotal + shipping) {
+    return res.status(400).json({ message: "Invalid order totals" });
+  }
+
   const total = subtotal + shipping - discount;
   const orderNumber = `ORD-${1008 + orders.length + items.length}`;
   const paymentMethod = req.body.paymentMethod || "Credit card";
@@ -223,10 +293,7 @@ app.post("/api/orders", requireAuth, (req, res) => {
     payment: paymentMethod === "Cash on delivery" ? "Pending" : "Paid",
     paymentMethod,
     channel: "Web",
-    items: items.map((item) => ({
-      ...item,
-      product: products.find((product) => product.id === item.productId)
-    })),
+    items: items.map(mapCartItem),
     subtotal,
     shipping,
     discount,

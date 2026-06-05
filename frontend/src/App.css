@@ -536,7 +536,7 @@ h2 {
 
 .catalog-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.5fr) minmax(180px, 0.5fr);
+  grid-template-columns: minmax(220px, 1fr) auto minmax(160px, 0.5fr) minmax(180px, 0.5fr);
   gap: 18px;
   align-items: end;
   border: 1px solid #dbe2ee;
@@ -548,6 +548,11 @@ h2 {
 
 .catalog-filters .field {
   margin-bottom: 0;
+}
+
+.filter-submit {
+  align-self: end;
+  min-width: 96px;
 }
 
 .product-grid {

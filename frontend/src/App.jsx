@@ -500,6 +500,9 @@ function App() {
   );
   const [currentUser, setCurrentUser] = useState(readStoredUser);
   const [cartItems, setCartItems] = useState([]);
+  const [cartStatus, setCartStatus] = useState(() =>
+    window.location.pathname === "/cart" || window.location.pathname === "/checkout" ? "loading" : "idle"
+  );
   const [createdOrders, setCreatedOrders] = useState([]);
   const [cartSessionId] = useState(readCartSessionId);
   const apiUser = currentUser || classroomCustomer;
@@ -512,6 +515,7 @@ function App() {
   };
 
   const loadCart = async () => {
+    setCartStatus("loading");
     const response = await fetch(`${apiBaseUrl}/api/cart`, {
       headers: {
         Authorization: `Bearer ${apiUser.token}`,
@@ -520,12 +524,14 @@ function App() {
     });
 
     if (!response.ok) {
+      setCartStatus("error");
       throw new Error("Cart API failed");
     }
 
     const body = await response.json();
     const mappedItems = body.items.map(mapApiCartItem);
     setCartItems(mappedItems);
+    setCartStatus("ready");
     return mappedItems;
   };
 
@@ -543,6 +549,7 @@ function App() {
     }
 
     setCartItems([]);
+    setCartStatus("ready");
   };
 
   useEffect(() => {
@@ -562,15 +569,11 @@ function App() {
     let cancelled = false;
 
     loadCart()
-      .then((items) => {
-        if (cancelled) {
-          return;
-        }
-        setCartItems(items);
-      })
+      .then(() => {})
       .catch(() => {
         if (!cancelled) {
           setCartItems([]);
+          setCartStatus("error");
         }
       });
 
@@ -656,13 +659,13 @@ function App() {
                 throw new Error("Cart API failed");
               }
 
-              await loadCart();
               navigate("/cart");
             }}
           />
         ) : currentPath === "/cart" ? (
           <CartPage
             cartCount={cartCount}
+            cartStatus={cartStatus}
             items={cartItems}
             onNavigate={navigate}
             onRemove={async (item) => {
@@ -683,6 +686,7 @@ function App() {
           />
         ) : currentPath === "/checkout" ? (
           <CheckoutPage
+            cartStatus={cartStatus}
             currentUser={apiUser}
             items={cartItems}
             onNavigate={navigate}
@@ -875,6 +879,7 @@ function HomePage({ currentUser, onLogout }) {
 function CatalogPage({ onNavigate }) {
   const [category, setCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
+  const [submittedSearch, setSubmittedSearch] = useState("");
   const [sortBy, setSortBy] = useState("Recommended");
   const [pageNumber, setPageNumber] = useState(1);
   const [apiProductIds, setApiProductIds] = useState(products.map((product) => product.id));
@@ -885,7 +890,7 @@ function CatalogPage({ onNavigate }) {
   const visibleProducts = products
     .filter((product) => apiProductIds.includes(product.id))
     .filter((product) => category === "All" || product.category === category)
-    .filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter((product) => product.name.toLowerCase().includes(submittedSearch.toLowerCase()))
     .sort((first, second) => {
       if (sortBy === "Price: low to high") {
         return first.price - second.price;
@@ -911,14 +916,14 @@ function CatalogPage({ onNavigate }) {
 
   useEffect(() => {
     setPageNumber(1);
-  }, [category, searchTerm, sortBy]);
+  }, [category, submittedSearch, sortBy]);
 
   useEffect(() => {
     let cancelled = false;
     const query = new URLSearchParams();
 
-    if (searchTerm.trim()) {
-      query.set("search", searchTerm.trim());
+    if (submittedSearch) {
+      query.set("search", submittedSearch);
     }
 
     if (category !== "All") {
@@ -949,7 +954,12 @@ function CatalogPage({ onNavigate }) {
     return () => {
       cancelled = true;
     };
-  }, [category, searchTerm]);
+  }, [category, submittedSearch]);
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    setSubmittedSearch(searchTerm.trim());
+  };
 
   return (
     <section className="catalog-page" aria-labelledby="catalog-title">
@@ -962,7 +972,7 @@ function CatalogPage({ onNavigate }) {
         </p>
       </div>
 
-      <form className="catalog-filters" aria-label="Product filters">
+      <form className="catalog-filters" aria-label="Product filters" onSubmit={submitSearch}>
         <label className="field" htmlFor="search-products">
           <span>Search products</span>
           <input
@@ -973,6 +983,10 @@ function CatalogPage({ onNavigate }) {
             placeholder="Search by product name"
           />
         </label>
+
+        <button className="button primary filter-submit" type="submit">
+          Search
+        </button>
 
         <label className="field" htmlFor="category-filter">
           <span>Category</span>
@@ -1323,9 +1337,32 @@ function ProductPage({ product, onAddToCart }) {
   const [color, setColor] = useState(product.colors[0]);
   const [quantity, setQuantity] = useState(1);
   const [fulfilment, setFulfilment] = useState("Home delivery");
+  const [addStatus, setAddStatus] = useState("idle");
+  const [addError, setAddError] = useState("");
   const relatedProducts = products
     .filter((item) => item.category === product.category && item.slug !== product.slug)
     .slice(0, 2);
+
+  const addSelectedItemToCart = async () => {
+    setAddStatus("loading");
+    setAddError("");
+
+    try {
+      await onAddToCart({
+        productId: product.id,
+        slug: product.slug,
+        name: product.name,
+        price: product.price,
+        size,
+        color,
+        quantity,
+        fulfilment
+      });
+    } catch {
+      setAddStatus("error");
+      setAddError("Unable to add this item. Check stock and try again.");
+    }
+  };
 
   return (
     <section className="product-layout" aria-labelledby="product-title">
@@ -1434,20 +1471,10 @@ function ProductPage({ product, onAddToCart }) {
           <button
             className="button primary"
             type="button"
-            onClick={() =>
-              onAddToCart({
-                productId: product.id,
-                slug: product.slug,
-                name: product.name,
-                price: product.price,
-                size,
-                color,
-                quantity,
-                fulfilment
-              })
-            }
+            disabled={addStatus === "loading"}
+            onClick={addSelectedItemToCart}
           >
-            Add to cart
+            {addStatus === "loading" ? "Adding..." : "Add to cart"}
           </button>
           <a className="button secondary" href="/size-guide" target="_blank" rel="noreferrer">
             Size guide
@@ -1457,6 +1484,7 @@ function ProductPage({ product, onAddToCart }) {
         <p className="inline-status" role="status">
           Selected {product.name}: {color}, {size}, quantity {quantity}, {fulfilment}
         </p>
+        {addError ? <div className="alert" role="alert">{addError}</div> : null}
       </div>
 
       <div className="side-stack">
@@ -1518,7 +1546,7 @@ function ProductPage({ product, onAddToCart }) {
   );
 }
 
-function CartPage({ cartCount, items, onNavigate, onRemove, onClearCart }) {
+function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearCart }) {
   const [shippingMethod, setShippingMethod] = useState("Standard shipping");
   const shippingCost = shippingMethod === "Express shipping" && items.length ? 199 : 0;
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -1541,11 +1569,19 @@ function CartPage({ cartCount, items, onNavigate, onRemove, onClearCart }) {
           Cart count: <strong data-testid="cart-count">{cartCount}</strong>
         </p>
 
-        {items.length > 0 ? (
+        {cartStatus === "loading" ? (
+          <p className="spinner" role="status">Loading cart...</p>
+        ) : null}
+
+        {cartStatus === "error" ? (
+          <div className="alert" role="alert">Cart could not be loaded. Check the POS API.</div>
+        ) : null}
+
+        {cartStatus !== "loading" && items.length > 0 ? (
           <>
             <div className="cart-items" aria-label="Cart items">
               {items.map((item) => (
-                <div className="cart-row" key={`${item.slug}-${item.size}-${item.color}`}>
+                <div className="cart-row" key={item.id}>
                   <span>
                     <strong>{item.name}</strong>
                     <small>{item.sku}</small>
@@ -1603,20 +1639,22 @@ function CartPage({ cartCount, items, onNavigate, onRemove, onClearCart }) {
               Start fresh cart
             </button>
           </>
-        ) : (
+        ) : null}
+
+        {cartStatus !== "loading" && items.length === 0 ? (
           <>
             <p role="status">Your cart is empty.</p>
             <button className="button secondary" type="button" onClick={() => onNavigate("/catalog")}>
               Continue shopping
             </button>
           </>
-        )}
+        ) : null}
       </div>
     </section>
   );
 }
 
-function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
+function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder }) {
   const [paymentMethod, setPaymentMethod] = useState("Credit card");
   const [deliverySlot, setDeliverySlot] = useState("Tomorrow 9 AM - 12 PM");
   const [address, setAddress] = useState("UST Campus, Bengaluru");
@@ -1669,7 +1707,18 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
 
       {submitError ? <div className="alert" role="alert">{submitError}</div> : null}
 
-      {!confirmation && items.length === 0 ? (
+      {!confirmation && cartStatus === "loading" ? (
+        <section className="panel" aria-labelledby="loading-checkout-title">
+          <h2 id="loading-checkout-title">Loading checkout</h2>
+          <p className="spinner" role="status">Loading cart...</p>
+        </section>
+      ) : null}
+
+      {!confirmation && cartStatus === "error" ? (
+        <div className="alert" role="alert">Checkout could not load the current cart.</div>
+      ) : null}
+
+      {!confirmation && cartStatus !== "loading" && items.length === 0 ? (
         <section className="panel" aria-labelledby="empty-checkout-title">
           <h2 id="empty-checkout-title">No items to checkout</h2>
           <p role="status">Add a product to cart before placing an order.</p>
@@ -1679,7 +1728,7 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
         </section>
       ) : null}
 
-      {!confirmation && items.length > 0 ? (
+      {!confirmation && cartStatus !== "loading" && items.length > 0 ? (
         <form className="checkout-layout" aria-label="Checkout" onSubmit={placeOrder}>
           <section className="panel" aria-labelledby="delivery-title">
             <h2 id="delivery-title">Delivery Details</h2>
@@ -1731,7 +1780,7 @@ function CheckoutPage({ currentUser, items, onNavigate, onPlaceOrder }) {
             <h2 id="checkout-summary-title">Checkout Summary</h2>
             <div className="cart-items" aria-label="Checkout items">
               {items.map((item) => (
-                <div className="summary-row" key={`${item.slug}-${item.size}-${item.color}`}>
+                <div className="summary-row" key={item.id}>
                   <span>
                     <strong>{item.name}</strong>
                     <small>{item.sku} · {item.color} · {item.size}</small>

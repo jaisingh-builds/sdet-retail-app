@@ -69,6 +69,8 @@ The product-to-order journey is API-backed: add-to-cart calls `POST /api/cart/it
 cart review calls `GET /api/cart`, cart reset calls `DELETE /api/cart`, checkout calls
 `POST /api/orders`, and the orders page calls `GET /api/orders`. The frontend sends a per-browser
 `X-Cart-Session` header so classroom tests can run safely in parallel without sharing cart state.
+Cart APIs enforce a maximum quantity of 5 per line, merge duplicate product configurations, and
+reject empty-cart order creation so Week 2 API tests have realistic validation paths.
 
 ## Current Starter Backend
 
