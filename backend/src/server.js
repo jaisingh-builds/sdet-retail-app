@@ -32,6 +32,83 @@ let products = [
   { id: 112, name: "Kids Learning Tablet", category: "Electronics", price: 9999, stock: 5 }
 ];
 
+const productSearchMetadata = {
+  101: {
+    brand: "SwiftRun",
+    sku: "FT-SHOE-101",
+    summary: "Lightweight daily trainers with breathable mesh and steady heel support.",
+    tags: ["Best seller", "Running", "COD eligible"]
+  },
+  102: {
+    brand: "TrailVault",
+    sku: "BG-TRVL-102",
+    summary: "Cabin-friendly backpack with laptop storage, rain cover, and quick-access pockets.",
+    tags: ["Travel", "Laptop safe", "Rain cover"]
+  },
+  103: {
+    brand: "SoundNest",
+    sku: "EL-AUD-103",
+    summary: "Wireless over-ear headphones with long battery life and commute-ready ANC.",
+    tags: ["Low stock", "Bluetooth", "ANC"]
+  },
+  104: {
+    brand: "HydraPeak",
+    sku: "FT-BTL-104",
+    summary: "Leak-proof bottle that keeps drinks cold through long office and training days.",
+    tags: ["Pickup ready", "BPA free", "Fitness"]
+  },
+  105: {
+    brand: "FlexWell",
+    sku: "FT-YOGA-105",
+    summary: "Non-slip mat with firm cushioning for daily stretching and workout routines.",
+    tags: ["Workout", "Beginner friendly", "Non-slip"]
+  },
+  106: {
+    brand: "MonsoonLab",
+    sku: "AP-RAIN-106",
+    summary: "Packable waterproof jacket with taped seams and adjustable hood.",
+    tags: ["Low stock", "Waterproof", "Monsoon"]
+  },
+  107: {
+    brand: "LumaDesk",
+    sku: "WS-LAMP-107",
+    summary: "Dimmable desk lamp with reading, focus, and night modes for hybrid work setups.",
+    tags: ["Workspace", "USB-C", "Dimmable"]
+  },
+  108: {
+    brand: "GoodGrain",
+    sku: "GR-SNCK-108",
+    summary: "Assorted office snack box with millet bars, roasted nuts, and baked crisps.",
+    tags: ["Fresh stock", "Office pantry", "Vegetarian"]
+  },
+  109: {
+    brand: "TableCraft",
+    sku: "HM-DINE-109",
+    summary: "Microwave-safe ceramic dinner set for family dining and gifting.",
+    tags: ["Low stock", "Giftable", "Fragile"]
+  },
+  110: {
+    brand: "CoreFlex",
+    sku: "FT-BAND-110",
+    summary: "Five-level resistance kit with handles, door anchor, and travel pouch.",
+    tags: ["Home workout", "Travel kit", "Beginner friendly"]
+  },
+  111: {
+    brand: "GlowRoute",
+    sku: "BT-SKIN-111",
+    summary: "Travel-friendly cleanser, moisturiser, sunscreen, and pouch bundle.",
+    tags: ["Travel", "SPF", "Giftable"]
+  },
+  112: {
+    brand: "BrightByte",
+    sku: "EL-KIDS-112",
+    summary: "Kid-safe tablet with parental controls, learning apps, and shock-proof case.",
+    tags: ["Low stock", "Parental controls", "Learning"]
+  }
+};
+
+products = products.map((product) => ({ ...product, ...productSearchMetadata[product.id] }));
+
 let cart = [];
 let orders = [];
 let nextCartItemId = 1;
@@ -100,6 +177,23 @@ function parseBoundedInteger(value, { min, max }) {
   return number;
 }
 
+function searchableProductText(product) {
+  return [
+    product.name,
+    product.category,
+    product.brand,
+    product.sku,
+    product.summary,
+    ...(product.tags || [])
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function productMatchesSearch(product, query) {
+  return !query || searchableProductText(product).includes(query);
+}
+
 function productForCartItem(item) {
   return products.find((product) => product.id === item.productId);
 }
@@ -166,7 +260,7 @@ app.get("/api/products", async (req, res) => {
   let result = products;
 
   if (search) {
-    result = result.filter((product) => product.name.toLowerCase().includes(search));
+    result = result.filter((product) => productMatchesSearch(product, search));
   }
 
   if (category) {

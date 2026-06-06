@@ -393,6 +393,29 @@ function findProduct(slug) {
   return products.find((product) => product.slug === slug) || products[0];
 }
 
+function searchableProductText(product) {
+  return [
+    product.name,
+    product.category,
+    product.brand,
+    product.sku,
+    product.summary,
+    product.delivery,
+    product.warranty,
+    product.returnWindow,
+    ...(product.tags || []),
+    ...(product.highlights || []),
+    ...Object.values(product.specs || {})
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function productMatchesSearch(product, query) {
+  const normalizedQuery = query.trim().toLowerCase();
+  return !normalizedQuery || searchableProductText(product).includes(normalizedQuery);
+}
+
 function slugify(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
@@ -972,7 +995,7 @@ function CatalogPage({ onNavigate }) {
   const visibleProducts = products
     .filter((product) => apiProductIds.includes(product.id))
     .filter((product) => category === "All" || product.category === category)
-    .filter((product) => product.name.toLowerCase().includes(submittedSearch.toLowerCase()))
+    .filter((product) => productMatchesSearch(product, submittedSearch))
     .sort((first, second) => {
       if (sortBy === "Price: low to high") {
         return first.price - second.price;
@@ -1063,7 +1086,7 @@ function CatalogPage({ onNavigate }) {
             value={searchTerm}
             maxLength={inputLimits.search}
             onChange={(event) => setSearchTerm(limitText(event.target.value, inputLimits.search))}
-            placeholder="Search by product name"
+            placeholder="Search name, category, brand, SKU, or tag"
           />
         </label>
 
