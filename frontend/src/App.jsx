@@ -8,6 +8,22 @@ const classroomCustomer = {
   token: "demo-token-1-customer"
 };
 
+const inputLimits = {
+  search: 60,
+  email: 80,
+  password: 64,
+  supportTicket: 24,
+  orderId: 16,
+  address: 180,
+  coupon: 12,
+  productName: 60,
+  profileName: 60,
+  phone: 20,
+  price: { min: 1, max: 999999 },
+  stock: { min: 0, max: 999 },
+  quantity: { min: 1, max: 5 }
+};
+
 const navItems = [
   { label: "Home", href: "/home", status: "Ready" },
   { label: "Login", href: "/login", status: "Day 2" },
@@ -381,6 +397,28 @@ function slugify(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+function limitText(value, maxLength) {
+  return String(value || "").slice(0, maxLength);
+}
+
+function limitIntegerText(value, { min, max }) {
+  const digitsOnly = String(value || "").replace(/\D/g, "");
+  if (!digitsOnly) {
+    return "";
+  }
+
+  const numericValue = Math.max(min, Math.min(max, Number(digitsOnly)));
+  return String(numericValue);
+}
+
+function limitInteger(value, { min, max }) {
+  const numericValue = Number(value);
+  if (!Number.isInteger(numericValue)) {
+    return min;
+  }
+  return Math.max(min, Math.min(max, numericValue));
+}
+
 function readCartSessionId() {
   const existing = window.sessionStorage.getItem("sdet-retail-cart-session");
   if (existing) {
@@ -445,7 +483,7 @@ const promoFrameMarkup = `
   </head>
   <body>
     <form aria-label="Promo signup" onsubmit="event.preventDefault(); document.getElementById('promo-status').textContent='Thanks for subscribing';">
-      <label>Email <input name="email" type="email" required /></label>
+      <label>Email <input name="email" type="email" maxlength="${inputLimits.email}" required /></label>
       <button type="submit">Subscribe</button>
       <p id="promo-status" role="status"></p>
     </form>
@@ -474,7 +512,7 @@ const shippingFrameMarkup = `
       <h1>Shipping Partner Widget</h1>
       <p>This content is isolated inside an iframe to practice frame-specific locators.</p>
       <form aria-label="Shipping estimate" onsubmit="event.preventDefault(); document.getElementById('estimate-status').textContent='Estimate ready: delivery by Friday';">
-        <label>Order ID <input name="orderId" value="ORD-1007" required /></label>
+        <label>Order ID <input name="orderId" value="ORD-1007" maxlength="${inputLimits.orderId}" required /></label>
         <label>Destination
           <select name="destination">
             <option>Bengaluru</option>
@@ -1002,7 +1040,7 @@ function CatalogPage({ onNavigate }) {
 
   const submitSearch = (event) => {
     event.preventDefault();
-    setSubmittedSearch(searchTerm.trim());
+    setSubmittedSearch(limitText(searchTerm.trim(), inputLimits.search));
   };
 
   return (
@@ -1023,7 +1061,8 @@ function CatalogPage({ onNavigate }) {
             id="search-products"
             type="search"
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            maxLength={inputLimits.search}
+            onChange={(event) => setSearchTerm(limitText(event.target.value, inputLimits.search))}
             placeholder="Search by product name"
           />
         </label>
@@ -1239,7 +1278,11 @@ function AccessibilityLabPage() {
               className="support-preview"
               src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Crect width='240' height='120' fill='%23dbeafe'/%3E%3Ccircle cx='64' cy='58' r='24' fill='%23125e6b'/%3E%3Crect x='104' y='42' width='92' height='16' fill='%23172033'/%3E%3Crect x='104' y='68' width='64' height='12' fill='%2340506a'/%3E%3C/svg%3E"
             />
-            <input id="support-ticket" placeholder="Enter support ticket ID" />
+            <input
+              id="support-ticket"
+              maxLength={inputLimits.supportTicket}
+              placeholder="Enter support ticket ID"
+            />
             <button className="icon-only-broken-button" type="button"></button>
             <button className="button primary" type="button">
               Lookup ticket
@@ -1492,13 +1535,12 @@ function ProductPage({ product, onAddToCart }) {
           <span>Quantity</span>
           <input
             id="quantity"
-            min="1"
-            max="5"
+            min={inputLimits.quantity.min}
+            max={inputLimits.quantity.max}
+            step="1"
             type="number"
             value={quantity}
-            onChange={(event) =>
-              setQuantity(Math.max(1, Math.min(5, Number(event.target.value) || 1)))
-            }
+            onChange={(event) => setQuantity(limitInteger(event.target.value, inputLimits.quantity))}
           />
         </label>
 
@@ -1732,11 +1774,18 @@ function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder
   const placeOrder = (event) => {
     event.preventDefault();
     setSubmitError("");
+    const safeAddress = limitText(address.trim(), inputLimits.address);
+    const safeCoupon = limitText(coupon.trim().toUpperCase(), inputLimits.coupon);
+    if (!safeAddress) {
+      setSubmitError("Delivery address is required.");
+      return;
+    }
+
     onPlaceOrder({
       paymentMethod,
       deliverySlot,
-      address,
-      coupon,
+      address: safeAddress,
+      coupon: safeCoupon,
       shipping,
       discount
     })
@@ -1809,7 +1858,8 @@ function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder
               <textarea
                 id="delivery-address"
                 value={address}
-                onChange={(event) => setAddress(event.target.value)}
+                maxLength={inputLimits.address}
+                onChange={(event) => setAddress(limitText(event.target.value, inputLimits.address))}
                 required
               />
             </label>
@@ -1858,7 +1908,8 @@ function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder
               <input
                 id="coupon-code"
                 value={coupon}
-                onChange={(event) => setCoupon(event.target.value)}
+                maxLength={inputLimits.coupon}
+                onChange={(event) => setCoupon(limitText(event.target.value.toUpperCase(), inputLimits.coupon))}
                 placeholder="Try UST10"
               />
             </label>
@@ -2130,21 +2181,29 @@ function AdminProductsPage() {
 
   const addProduct = (event) => {
     event.preventDefault();
+    const safeName = limitText(newProduct.name.trim(), inputLimits.productName);
+    const safePrice = limitIntegerText(newProduct.price, inputLimits.price) || String(inputLimits.price.min);
+    const safeStock = limitIntegerText(newProduct.stock, inputLimits.stock) || String(inputLimits.stock.min);
+    if (!safeName) {
+      setMessage("Product name is required");
+      return;
+    }
+
     const product = {
-      name: newProduct.name,
-      slug: slugify(newProduct.name),
+      name: safeName,
+      slug: slugify(safeName),
       category: newProduct.category,
       brand: "Admin Launch",
-      sku: `AD-${slugify(newProduct.name).slice(0, 8).toUpperCase()}`,
-      price: Number(newProduct.price),
+      sku: `AD-${slugify(safeName).slice(0, 8).toUpperCase()}`,
+      price: Number(safePrice),
       rating: 4,
-      stock: Number(newProduct.stock),
+      stock: Number(safeStock),
       reorderLevel: 5,
       warehouse: "ADM-NEW",
       imageTone: "teal",
       colors: ["Black"],
       sizes: ["Standard"],
-      summary: `${newProduct.name} added through the admin product workflow.`,
+      summary: `${safeName} added through the admin product workflow.`,
       delivery: newProduct.featured ? "Priority launch item" : "Ships in 2 days",
       warranty: "Admin-defined warranty",
       returnWindow: "7-day return",
@@ -2193,7 +2252,10 @@ function AdminProductsPage() {
             <input
               id="new-product-name"
               value={newProduct.name}
-              onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })}
+              maxLength={inputLimits.productName}
+              onChange={(event) =>
+                setNewProduct({ ...newProduct, name: limitText(event.target.value, inputLimits.productName) })
+              }
               required
             />
           </label>
@@ -2215,20 +2277,30 @@ function AdminProductsPage() {
               <span>Price</span>
               <input
                 id="new-product-price"
-                min="1"
+                min={inputLimits.price.min}
+                max={inputLimits.price.max}
+                step="1"
                 type="number"
                 value={newProduct.price}
-                onChange={(event) => setNewProduct({ ...newProduct, price: event.target.value })}
+                required
+                onChange={(event) =>
+                  setNewProduct({ ...newProduct, price: limitIntegerText(event.target.value, inputLimits.price) })
+                }
               />
             </label>
             <label className="field" htmlFor="new-product-stock">
               <span>Stock</span>
               <input
                 id="new-product-stock"
-                min="0"
+                min={inputLimits.stock.min}
+                max={inputLimits.stock.max}
+                step="1"
                 type="number"
                 value={newProduct.stock}
-                onChange={(event) => setNewProduct({ ...newProduct, stock: event.target.value })}
+                required
+                onChange={(event) =>
+                  setNewProduct({ ...newProduct, stock: limitIntegerText(event.target.value, inputLimits.stock) })
+                }
               />
             </label>
           </div>
@@ -2441,7 +2513,7 @@ function LoginPage({ onLogin }) {
     setError("");
     setIsSubmitting(true);
     try {
-      const result = await onLogin({ email, password, rememberMe, country });
+      const result = await onLogin({ email: email.trim(), password, rememberMe, country });
       if (!result.ok) {
         setError(result.message);
       }
@@ -2480,7 +2552,8 @@ function LoginPage({ onLogin }) {
             type="email"
             autoComplete="username"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            maxLength={inputLimits.email}
+            onChange={(event) => setEmail(limitText(event.target.value, inputLimits.email))}
             placeholder="customer@example.com"
             required
           />
@@ -2494,7 +2567,8 @@ function LoginPage({ onLogin }) {
             type="password"
             autoComplete="current-password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            maxLength={inputLimits.password}
+            onChange={(event) => setPassword(limitText(event.target.value, inputLimits.password))}
             placeholder="Password@123"
             required
           />
@@ -2682,7 +2756,13 @@ function ProfilePage({ currentUser }) {
           aria-label="Profile details"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!draftProfile.name.trim()) {
+            const safeProfile = {
+              ...draftProfile,
+              name: limitText(draftProfile.name.trim(), inputLimits.profileName),
+              phone: limitText(draftProfile.phone.trim(), inputLimits.phone),
+              address: limitText(draftProfile.address.trim(), inputLimits.address)
+            };
+            if (!safeProfile.name) {
               setSaveMessage("Name is required.");
               return;
             }
@@ -2693,10 +2773,11 @@ function ProfilePage({ currentUser }) {
                   Authorization: `Bearer ${currentUser.token}`,
                   "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ name: draftProfile.name })
+                body: JSON.stringify({ name: safeProfile.name })
               });
             }
-            setProfile(draftProfile);
+            setDraftProfile(safeProfile);
+            setProfile(safeProfile);
             setSaveMessage("Profile saved.");
           }}
         >
@@ -2708,7 +2789,10 @@ function ProfilePage({ currentUser }) {
               <input
                 id="profile-name"
                 value={draftProfile.name}
-                onChange={(event) => setDraftProfile({ ...draftProfile, name: event.target.value })}
+                maxLength={inputLimits.profileName}
+                onChange={(event) =>
+                  setDraftProfile({ ...draftProfile, name: limitText(event.target.value, inputLimits.profileName) })
+                }
                 required
               />
             </label>
@@ -2727,7 +2811,10 @@ function ProfilePage({ currentUser }) {
               <input
                 id="profile-phone"
                 value={draftProfile.phone}
-                onChange={(event) => setDraftProfile({ ...draftProfile, phone: event.target.value })}
+                maxLength={inputLimits.phone}
+                onChange={(event) =>
+                  setDraftProfile({ ...draftProfile, phone: limitText(event.target.value, inputLimits.phone) })
+                }
               />
             </label>
           </div>
@@ -2736,7 +2823,10 @@ function ProfilePage({ currentUser }) {
             <textarea
               id="profile-address"
               value={draftProfile.address}
-              onChange={(event) => setDraftProfile({ ...draftProfile, address: event.target.value })}
+              maxLength={inputLimits.address}
+              onChange={(event) =>
+                setDraftProfile({ ...draftProfile, address: limitText(event.target.value, inputLimits.address) })
+              }
             />
           </label>
           <label className="field" htmlFor="profile-avatar">

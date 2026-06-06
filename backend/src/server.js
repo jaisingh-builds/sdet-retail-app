@@ -39,6 +39,19 @@ let nextCartItemId = 1;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const tokenFor = (user) => `demo-token-${user.id}-${user.role}`;
 const maxCartQuantity = 5;
+const inputLimits = {
+  search: 60,
+  email: 80,
+  password: 64,
+  cartOption: 40,
+  address: 180,
+  coupon: 12,
+  productName: 60,
+  category: 40,
+  profileName: 60,
+  price: { min: 1, max: 999999 },
+  stock: { min: 0, max: 999 }
+};
 
 function currentUser(req) {
   const auth = req.headers.authorization || "";
@@ -75,6 +88,18 @@ function parseQuantity(value, fallback = 1) {
   return quantity;
 }
 
+function limitText(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
+function parseBoundedInteger(value, { min, max }) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) {
+    return null;
+  }
+  return number;
+}
+
 function productForCartItem(item) {
   return products.find((product) => product.id === item.productId);
 }
@@ -103,7 +128,8 @@ app.get("/api/debug/cart-total", async (req, res) => {
 });
 
 function handleLogin(req, res) {
-  const { email, password } = req.body;
+  const email = limitText(req.body.email, inputLimits.email);
+  const password = limitText(req.body.password, inputLimits.password);
   const user = users.find((item) => item.email === email);
 
   if (!user || user.password !== password || email === "invalid@example.com") {
@@ -135,8 +161,8 @@ app.get("/api/products", async (req, res) => {
     await delay(Math.min(requestedDelay, 3000));
   }
 
-  const search = String(req.query.search || "").toLowerCase();
-  const category = String(req.query.category || "").toLowerCase();
+  const search = limitText(req.query.search, inputLimits.search).toLowerCase();
+  const category = limitText(req.query.category, inputLimits.category).toLowerCase();
   let result = products;
 
   if (search) {
@@ -162,6 +188,9 @@ app.post("/api/cart/items", requireAuth, (req, res) => {
   const { productId, quantity = 1, size = "Standard", color = "Default", fulfilment = "Home delivery" } = req.body;
   const product = products.find((item) => item.id === Number(productId));
   const requestedQuantity = parseQuantity(quantity);
+  const safeSize = limitText(size, inputLimits.cartOption) || "Standard";
+  const safeColor = limitText(color, inputLimits.cartOption) || "Default";
+  const safeFulfilment = limitText(fulfilment, inputLimits.cartOption) || "Home delivery";
 
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
@@ -180,9 +209,9 @@ app.post("/api/cart/items", requireAuth, (req, res) => {
     (item) =>
       item.ownerKey === cartOwnerKey &&
       item.productId === product.id &&
-      item.size === size &&
-      item.color === color &&
-      item.fulfilment === fulfilment
+      item.size === safeSize &&
+      item.color === safeColor &&
+      item.fulfilment === safeFulfilment
   );
 
   if (existingItem) {
@@ -205,9 +234,9 @@ app.post("/api/cart/items", requireAuth, (req, res) => {
     ownerKey: cartOwnerKey,
     productId: product.id,
     quantity: requestedQuantity,
-    size,
-    color,
-    fulfilment
+    size: safeSize,
+    color: safeColor,
+    fulfilment: safeFulfilment
   };
   nextCartItemId += 1;
   cart.push(item);
@@ -281,7 +310,13 @@ app.post("/api/orders", requireAuth, (req, res) => {
 
   const total = subtotal + shipping - discount;
   const orderNumber = `ORD-${1008 + orders.length + items.length}`;
-  const paymentMethod = req.body.paymentMethod || "Credit card";
+  const paymentMethod = limitText(req.body.paymentMethod, inputLimits.cartOption) || "Credit card";
+  const deliverySlot = limitText(req.body.deliverySlot, inputLimits.cartOption);
+  const address = limitText(req.body.address, inputLimits.address);
+  const coupon = limitText(req.body.coupon, inputLimits.coupon).toUpperCase();
+  if (!address) {
+    return res.status(400).json({ message: "Delivery address is required" });
+  }
 
   const order = {
     id: orders.length + 5001,
@@ -298,8 +333,9 @@ app.post("/api/orders", requireAuth, (req, res) => {
     shipping,
     discount,
     total: process.env.BUG_WRONG_ORDER_TOTAL === "true" ? total + 99 : total,
-    deliverySlot: req.body.deliverySlot,
-    address: req.body.address
+    deliverySlot,
+    address,
+    coupon
   };
 
   orders.push(order);
@@ -334,12 +370,24 @@ app.get("/api/profile", requireAuth, async (req, res) => {
 });
 
 app.put("/api/users/me", requireAuth, (req, res) => {
-  req.user.name = req.body.name || req.user.name;
+  const name = limitText(req.body.name, inputLimits.profileName);
+  if (!name) {
+    return res.status(400).json({ message: "Name is required" });
+  }
+  req.user.name = name;
   res.json({ id: req.user.id, email: req.user.email, role: req.user.role, name: req.user.name });
 });
 
 app.post("/api/admin/products", requireAuth, requireAdmin, (req, res) => {
-  const product = { id: Date.now(), ...req.body };
+  const name = limitText(req.body.name, inputLimits.productName);
+  const category = limitText(req.body.category, inputLimits.category);
+  const price = parseBoundedInteger(req.body.price, inputLimits.price);
+  const stock = parseBoundedInteger(req.body.stock, inputLimits.stock);
+  if (!name || !category || price === null || stock === null) {
+    return res.status(400).json({ message: "Product name, category, price, and stock are required within allowed limits" });
+  }
+
+  const product = { id: Date.now(), ...req.body, name, category, price, stock };
   products.push(product);
   res.status(201).json(product);
 });
@@ -349,7 +397,32 @@ app.put("/api/admin/products/:id", requireAuth, requireAdmin, (req, res) => {
   if (index === -1) {
     return res.status(404).json({ message: "Product not found" });
   }
-  products[index] = { ...products[index], ...req.body };
+  const changes = { ...req.body };
+  if ("name" in changes) {
+    changes.name = limitText(changes.name, inputLimits.productName);
+    if (!changes.name) {
+      return res.status(400).json({ message: "Product name is required" });
+    }
+  }
+  if ("category" in changes) {
+    changes.category = limitText(changes.category, inputLimits.category);
+    if (!changes.category) {
+      return res.status(400).json({ message: "Product category is required" });
+    }
+  }
+  if ("price" in changes) {
+    changes.price = parseBoundedInteger(changes.price, inputLimits.price);
+    if (changes.price === null) {
+      return res.status(400).json({ message: "Product price is outside allowed limits" });
+    }
+  }
+  if ("stock" in changes) {
+    changes.stock = parseBoundedInteger(changes.stock, inputLimits.stock);
+    if (changes.stock === null) {
+      return res.status(400).json({ message: "Product stock is outside allowed limits" });
+    }
+  }
+  products[index] = { ...products[index], ...changes };
   res.json(products[index]);
 });
 
