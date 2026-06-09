@@ -115,6 +115,13 @@ let nextCartItemId = 1;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const tokenFor = (user) => `demo-token-${user.id}-${user.role}`;
+const escapeXml = (value) =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
 const maxCartQuantity = 5;
 const inputLimits = {
   search: 60,
@@ -278,6 +285,25 @@ app.get("/api/products/:id", (req, res) => {
   res.json(product);
 });
 
+app.get("/api/legacy/products/:id.xml", (req, res) => {
+  const product = products.find((item) => item.id === Number(req.params.id));
+  if (!product) {
+    return res.status(404).type("application/xml").send("<error><message>Product not found</message></error>");
+  }
+
+  res.type("application/xml").send(
+    [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      "<product>",
+      `  <id>${product.id}</id>`,
+      `  <name>${escapeXml(product.name)}</name>`,
+      `  <category>${escapeXml(product.category)}</category>`,
+      `  <price>${product.price}</price>`,
+      "</product>"
+    ].join("\n")
+  );
+});
+
 app.post("/api/cart/items", requireAuth, (req, res) => {
   const { productId, quantity = 1, size = "Standard", color = "Default", fulfilment = "Home delivery" } = req.body;
   const product = products.find((item) => item.id === Number(productId));
@@ -434,7 +460,7 @@ app.post("/api/orders", requireAuth, (req, res) => {
 
   orders.push(order);
   cart = cart.filter((item) => item.ownerKey !== orderOwnerKey);
-  res.status(201).json(order);
+  res.location(`/api/orders/${order.id}`).status(201).json(order);
 });
 
 app.get("/api/orders", requireAuth, (req, res) => {

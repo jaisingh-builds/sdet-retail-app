@@ -74,6 +74,24 @@ paths:
           description: Product detail
         "404":
           description: Product not found
+  /api/legacy/products/{id}.xml:
+    get:
+      summary: Legacy XML product detail for Week 2 Day 2 XmlPath labs
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product detail as XML
+          content:
+            application/xml:
+              schema:
+                type: string
+        "404":
+          description: Product not found as XML
   /api/cart/items:
     post:
       summary: Add cart item
@@ -153,6 +171,11 @@ paths:
       responses:
         "201":
           description: Order created
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL of the created order
         "400":
           description: Empty cart or invalid totals
   /api/orders/{id}:
