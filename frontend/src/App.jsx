@@ -194,7 +194,7 @@ const apiDocs = [
         auth: "Basic client credentials",
         purpose: "Fetch a JWT-style access token for secure API tests.",
         headers: {
-          Authorization: "Basic base64(retail-ops-client:ops-secret)",
+          Authorization: "Basic base64(client-id:client-secret)",
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
         },
         requestText: "grant_type=client_credentials",
@@ -248,7 +248,7 @@ const apiDocs = [
         auth: "X-API-Key",
         purpose: "API-key variant for partner access tests.",
         headers: {
-          "X-API-Key": "retail-demo-key"
+          "X-API-Key": "<configured-api-key>"
         },
         request: null,
         response: {
@@ -2795,11 +2795,11 @@ function ApiDocsPage() {
           </div>
           <div>
             <span>Ops client</span>
-            <strong>retail-ops-client / ops-secret</strong>
+            <strong>OAUTH_CLIENT_ID / OAUTH_CLIENT_SECRET</strong>
           </div>
           <div>
             <span>API key</span>
-            <strong>retail-demo-key</strong>
+            <strong>RETAIL_API_KEY</strong>
           </div>
         </div>
       </div>

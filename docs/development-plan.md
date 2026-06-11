@@ -366,7 +366,7 @@ Minimum orders:
 POS_SERVICE_PORT=4000
 OMS_SERVICE_PORT=4010
 DATABASE_URL=postgresql://retail:retail@localhost:5432/sdet_retail
-JWT_SECRET=classroom-secret
+JWT_SECRET=
 OMS_SERVICE_URL=http://localhost:4010
 PAYMENT_SERVICE_URL=http://localhost:8089
 NOTIFICATION_SERVICE_URL=http://localhost:8089

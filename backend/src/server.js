@@ -1,7 +1,10 @@
+import dotenv from "dotenv";
 import cors from "cors";
 import crypto from "crypto";
 import express from "express";
 import morgan from "morgan";
+import { fileURLToPath } from "url";
+import path from "path";
 import {
   databaseEnabled,
   deleteOrder,
@@ -9,6 +12,17 @@ import {
   initializeDatabase,
   insertOrder
 } from "./database.js";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(currentDir, "../../.env") });
+
+function requiredSecret(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -29,7 +43,7 @@ const users = [
 const oauthClients = [
   {
     id: "retail-ops-client",
-    secret: "ops-secret",
+    secret: requiredSecret("OAUTH_CLIENT_SECRET"),
     subject: "svc-retail-ops",
     role: "OPS",
     scope: "orders:read orders:write",
@@ -37,7 +51,7 @@ const oauthClients = [
   },
   {
     id: "retail-viewer-client",
-    secret: "viewer-secret",
+    secret: requiredSecret("OAUTH_VIEWER_CLIENT_SECRET"),
     subject: "svc-retail-viewer",
     role: "VIEWER",
     scope: "orders:read",
@@ -45,7 +59,7 @@ const oauthClients = [
   },
   {
     id: "retail-expired-client",
-    secret: "expired-secret",
+    secret: requiredSecret("OAUTH_EXPIRED_CLIENT_SECRET"),
     subject: "svc-retail-expired",
     role: "OPS",
     scope: "orders:read orders:write",
@@ -53,8 +67,8 @@ const oauthClients = [
   }
 ];
 
-const jwtSecret = process.env.DEMO_JWT_SECRET || "sdet-retail-demo-secret";
-const partnerApiKey = process.env.RETAIL_API_KEY || "retail-demo-key";
+const jwtSecret = requiredSecret("DEMO_JWT_SECRET");
+const partnerApiKey = requiredSecret("RETAIL_API_KEY");
 
 let products = [
   { id: 101, name: "Running Shoes", category: "Footwear", price: 4499, stock: 18 },

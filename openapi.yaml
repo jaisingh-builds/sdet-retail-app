@@ -219,7 +219,7 @@ paths:
                   example: retail-test-client
                 client_secret:
                   type: string
-                  example: retail-test-secret
+                  format: password
       responses:
         "200":
           description: Access token created
