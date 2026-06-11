@@ -86,6 +86,36 @@ Backend health check:
 curl http://localhost:4000/api/health
 ```
 
+### Optional PostgreSQL Persistence For Week 2 Day 5
+
+The backend remains in-memory by default. Set `DATABASE_URL` to persist secured order APIs in PostgreSQL:
+
+```bash
+cd backend
+export DATABASE_URL='postgresql://user:password@host:5432/database?sslmode=require'
+npm start
+```
+
+Check the active persistence mode:
+
+```bash
+curl http://localhost:4000/api/health
+```
+
+Expected when PostgreSQL is enabled:
+
+```json
+{"persistence":"postgres"}
+```
+
+PostgreSQL-backed Day 5 routes:
+
+- `POST /api/secure/orders`
+- `GET /api/secure/orders/{id}`
+- `DELETE /api/secure/orders/{id}` for targeted test cleanup
+
+Without `DATABASE_URL`, these routes continue using in-memory classroom data.
+
 This starter API is intentionally small. It exists so the automation repos have a runnable target immediately. The planned build will evolve this into NestJS-based POS/retail and OMS services.
 
 ## Feature Flags

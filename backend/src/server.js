@@ -2,6 +2,13 @@ import cors from "cors";
 import crypto from "crypto";
 import express from "express";
 import morgan from "morgan";
+import {
+  databaseEnabled,
+  deleteOrder,
+  findOrder,
+  initializeDatabase,
+  insertOrder
+} from "./database.js";
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -394,7 +401,12 @@ function mapCartItem(item) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", service: "sdet-retail-app", authDemo: "w2d4" });
+  res.json({
+    status: "ok",
+    service: "sdet-retail-app",
+    authDemo: "w2d4",
+    persistence: databaseEnabled() ? "postgres" : "memory"
+  });
 });
 
 app.get("/api/debug/cart-total", async (req, res) => {
@@ -682,15 +694,17 @@ app.get("/api/orders/:id", requireAuth, (req, res) => {
   res.json(order);
 });
 
-app.get("/api/secure/orders/:id", requireAuth, requireScope("orders:read"), (req, res) => {
-  const order = secureOrders.find((item) => item.id === Number(req.params.id));
+app.get("/api/secure/orders/:id", requireAuth, requireScope("orders:read"), async (req, res) => {
+  const order = databaseEnabled()
+    ? await findOrder(Number(req.params.id))
+    : secureOrders.find((item) => item.id === Number(req.params.id));
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
   }
   res.json(order);
 });
 
-app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("orders:write"), (req, res) => {
+app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("orders:write"), async (req, res) => {
   const productIds = Array.isArray(req.body.items) ? req.body.items : [101];
   const items = productIds.map((productId) => {
     const product = products.find((candidate) => candidate.id === Number(productId));
@@ -706,7 +720,7 @@ app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("or
   const order = {
     id: secureOrders.length + 6001,
     orderId: secureOrders.length + 6001,
-    orderNumber: `ORD-${secureOrders.length + 6001}`,
+    orderNumber: `ORD-${Date.now()}`,
     status: "CREATED",
     payment: "Pending",
     paymentMethod: "API",
@@ -720,8 +734,27 @@ app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("or
     deliverySlot: "Standard"
   };
 
+  if (databaseEnabled()) {
+    const persistedOrder = await insertOrder(order, req.user.name);
+    return res.location(`/api/secure/orders/${persistedOrder.id}`).status(201).json(persistedOrder);
+  }
+
   secureOrders.push(order);
   res.location(`/api/secure/orders/${order.id}`).status(201).json(order);
+});
+
+app.delete("/api/secure/orders/:id", requireAuth, requireRole("OPS"), requireScope("orders:write"), async (req, res) => {
+  if (databaseEnabled()) {
+    const deleted = await deleteOrder(Number(req.params.id));
+    return deleted ? res.status(204).send() : res.status(404).json({ message: "Order not found" });
+  }
+
+  const orderIndex = secureOrders.findIndex((item) => item.id === Number(req.params.id));
+  if (orderIndex === -1) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+  secureOrders.splice(orderIndex, 1);
+  res.status(204).send();
 });
 
 app.get("/api/partner/orders/:id", requireApiKey, (req, res) => {
@@ -812,6 +845,13 @@ app.get("/api/admin/orders", requireAuth, requireAdmin, (_req, res) => {
   res.json({ items: orders });
 });
 
-app.listen(port, () => {
-  console.log(`SDET Retail Automation Lab API listening on http://localhost:${port}`);
-});
+try {
+  await initializeDatabase(secureOrders[0]);
+  app.listen(port, () => {
+    const persistence = databaseEnabled() ? "PostgreSQL" : "in-memory data";
+    console.log(`SDET Retail Automation Lab API listening on http://localhost:${port} using ${persistence}`);
+  });
+} catch (error) {
+  console.error("Retail API failed to initialize", error);
+  process.exit(1);
+}
