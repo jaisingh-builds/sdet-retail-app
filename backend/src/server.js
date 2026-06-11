@@ -1,4 +1,5 @@
 import cors from "cors";
+import crypto from "crypto";
 import express from "express";
 import morgan from "morgan";
 
@@ -7,6 +8,7 @@ const port = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(morgan("dev"));
 
 const users = [
@@ -16,6 +18,36 @@ const users = [
   { id: 4, email: "locked@example.com", password: "Password@123", role: "customer", locked: true, name: "Locked User" },
   { id: 5, email: "user@test.com", password: "Secret123", role: "customer", locked: false, name: "Demo User" }
 ];
+
+const oauthClients = [
+  {
+    id: "retail-ops-client",
+    secret: "ops-secret",
+    subject: "svc-retail-ops",
+    role: "OPS",
+    scope: "orders:read orders:write",
+    expiresIn: 3600
+  },
+  {
+    id: "retail-viewer-client",
+    secret: "viewer-secret",
+    subject: "svc-retail-viewer",
+    role: "VIEWER",
+    scope: "orders:read",
+    expiresIn: 3600
+  },
+  {
+    id: "retail-expired-client",
+    secret: "expired-secret",
+    subject: "svc-retail-expired",
+    role: "OPS",
+    scope: "orders:read orders:write",
+    expiresIn: -60
+  }
+];
+
+const jwtSecret = process.env.DEMO_JWT_SECRET || "sdet-retail-demo-secret";
+const partnerApiKey = process.env.RETAIL_API_KEY || "retail-demo-key";
 
 let products = [
   { id: 101, name: "Running Shoes", category: "Footwear", price: 4499, stock: 18 },
@@ -113,8 +145,94 @@ let cart = [];
 let orders = [];
 let nextCartItemId = 1;
 
+const secureOrders = [
+  {
+    id: 5001,
+    orderNumber: "ORD-5001",
+    status: "Confirmed",
+    payment: "Paid",
+    paymentMethod: "Credit card",
+    channel: "API",
+    items: [
+      {
+        productId: 101,
+        quantity: 2,
+        product: { id: 101, name: "Running Shoes", category: "Footwear", price: 4499 }
+      }
+    ],
+    subtotal: 8998,
+    shipping: 49,
+    discount: 0,
+    total: 9047,
+    address: "UST Training Lab, Bengaluru",
+    deliverySlot: "Tomorrow 10 AM - 1 PM"
+  }
+];
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const tokenFor = (user) => `demo-token-${user.id}-${user.role}`;
+const base64Url = (value) => Buffer.from(value).toString("base64url");
+const signJwt = (unsignedToken) =>
+  crypto.createHmac("sha256", jwtSecret).update(unsignedToken).digest("base64url");
+
+function createAccessToken(client) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "HS256", typ: "JWT" };
+  const payload = {
+    iss: "sdet-retail-demo",
+    aud: "sdet-retail-api",
+    sub: client.subject,
+    role: client.role,
+    scope: client.scope,
+    iat: now,
+    exp: now + client.expiresIn
+  };
+  const unsignedToken = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
+  return `${unsignedToken}.${signJwt(unsignedToken)}`;
+}
+
+function decodeJsonPart(value) {
+  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+}
+
+function parseBasicCredentials(req) {
+  const auth = req.headers.authorization || "";
+  if (!auth.startsWith("Basic ")) {
+    return null;
+  }
+
+  const decoded = Buffer.from(auth.slice("Basic ".length), "base64").toString("utf8");
+  const separatorIndex = decoded.indexOf(":");
+  if (separatorIndex === -1) {
+    return null;
+  }
+
+  return {
+    id: decoded.slice(0, separatorIndex),
+    secret: decoded.slice(separatorIndex + 1)
+  };
+}
+
+function parseJwtToken(token) {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const unsignedToken = `${parts[0]}.${parts[1]}`;
+  if (signJwt(unsignedToken) !== parts[2]) {
+    return null;
+  }
+
+  const payload = decodeJsonPart(parts[1]);
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp <= now) {
+    return { expired: true, payload };
+  }
+
+  return { expired: false, payload };
+}
+
 const escapeXml = (value) =>
   String(value)
     .replaceAll("&", "&amp;")
@@ -140,13 +258,49 @@ const inputLimits = {
 function currentUser(req) {
   const auth = req.headers.authorization || "";
   const token = auth.replace("Bearer ", "");
+  if (token.includes(".")) {
+    const parsed = parseJwtToken(token);
+    if (!parsed || parsed.expired) {
+      return null;
+    }
+
+    return {
+      id: 900,
+      email: `${parsed.payload.sub}@service.local`,
+      role: parsed.payload.role,
+      scope: parsed.payload.scope || "",
+      name: parsed.payload.sub,
+      authType: "jwt"
+    };
+  }
+
   const id = Number(token.split("-")[2]);
   return users.find((user) => user.id === id);
 }
 
 function requireAuth(req, res, next) {
+  const auth = req.headers.authorization || "";
+  if (!auth.startsWith("Bearer ")) {
+    res.set("WWW-Authenticate", 'Bearer error="missing_token"');
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  const token = auth.slice("Bearer ".length);
+  if (token.includes(".")) {
+    const parsed = parseJwtToken(token);
+    if (!parsed) {
+      res.set("WWW-Authenticate", 'Bearer error="invalid_token"');
+      return res.status(401).json({ message: "Invalid access token" });
+    }
+    if (parsed.expired) {
+      res.set("WWW-Authenticate", 'Bearer error="invalid_token", error_description="The access token expired"');
+      return res.status(401).json({ message: "Access token expired" });
+    }
+  }
+
   const user = currentUser(req);
   if (!user) {
+    res.set("WWW-Authenticate", 'Bearer error="invalid_token"');
     return res.status(401).json({ message: "Authentication required" });
   }
   req.user = user;
@@ -156,6 +310,36 @@ function requireAuth(req, res, next) {
 function requireAdmin(req, res, next) {
   if (req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin role required" });
+  }
+  next();
+}
+
+function requireRole(role) {
+  return (req, res, next) => {
+    if (req.user.role !== role) {
+      return res.status(403).json({ message: `${role} role required` });
+    }
+    next();
+  };
+}
+
+function requireScope(scope) {
+  return (req, res, next) => {
+    const scopes = String(req.user.scope || "").split(" ");
+    if (!scopes.includes(scope)) {
+      return res.status(403).json({ message: `${scope} scope required` });
+    }
+    next();
+  };
+}
+
+function requireApiKey(req, res, next) {
+  const key = req.headers["x-api-key"];
+  if (!key) {
+    return res.status(401).json({ message: "API key required" });
+  }
+  if (key !== partnerApiKey) {
+    return res.status(403).json({ message: "Invalid API key" });
   }
   next();
 }
@@ -249,6 +433,29 @@ function handleLogin(req, res) {
 
 app.post("/api/auth/login", handleLogin);
 app.post("/api/login", handleLogin);
+
+app.post("/api/oauth/token", (req, res) => {
+  const basic = parseBasicCredentials(req);
+  const clientId = basic?.id || req.body.client_id;
+  const clientSecret = basic?.secret || req.body.client_secret;
+  const grantType = req.body.grant_type;
+
+  if (grantType !== "client_credentials") {
+    return res.status(400).json({ error: "unsupported_grant_type" });
+  }
+
+  const client = oauthClients.find((item) => item.id === clientId && item.secret === clientSecret);
+  if (!client) {
+    return res.status(401).json({ error: "invalid_client" });
+  }
+
+  res.json({
+    access_token: createAccessToken(client),
+    token_type: "Bearer",
+    expires_in: Math.max(client.expiresIn, 0),
+    scope: client.scope
+  });
+});
 
 app.post("/api/auth/logout", requireAuth, (_req, res) => {
   res.status(204).send();
@@ -473,6 +680,55 @@ app.get("/api/orders/:id", requireAuth, (req, res) => {
     return res.status(404).json({ message: "Order not found" });
   }
   res.json(order);
+});
+
+app.get("/api/secure/orders/:id", requireAuth, requireScope("orders:read"), (req, res) => {
+  const order = secureOrders.find((item) => item.id === Number(req.params.id));
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+  res.json(order);
+});
+
+app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("orders:write"), (req, res) => {
+  const productIds = Array.isArray(req.body.items) ? req.body.items : [101];
+  const items = productIds.map((productId) => {
+    const product = products.find((candidate) => candidate.id === Number(productId));
+    return {
+      productId: product?.id || Number(productId),
+      quantity: 1,
+      product: product
+        ? { id: product.id, name: product.name, category: product.category, price: product.price }
+        : { id: Number(productId), name: "Unknown", category: "Unknown", price: 0 }
+    };
+  });
+  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const order = {
+    id: secureOrders.length + 6001,
+    orderNumber: `ORD-${secureOrders.length + 6001}`,
+    status: "CREATED",
+    payment: "Pending",
+    paymentMethod: "API",
+    channel: "API",
+    items,
+    subtotal,
+    shipping: 0,
+    discount: 0,
+    total: subtotal,
+    address: "API Fulfilment Queue",
+    deliverySlot: "Standard"
+  };
+
+  secureOrders.push(order);
+  res.location(`/api/secure/orders/${order.id}`).status(201).json(order);
+});
+
+app.get("/api/partner/orders/:id", requireApiKey, (req, res) => {
+  const order = secureOrders.find((item) => item.id === Number(req.params.id));
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+  res.json({ partner: "UST Partner Channel", order });
 });
 
 app.get("/api/users/me", requireAuth, async (req, res) => {
