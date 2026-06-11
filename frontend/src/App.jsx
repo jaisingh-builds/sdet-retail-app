@@ -36,7 +36,272 @@ const navItems = [
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Checkout", href: "/checkout", status: "Week 4" },
   { label: "Orders", href: "/orders", status: "Week 2" },
+  { label: "API Docs", href: "/api-docs", status: "Week 2" },
   { label: "Admin", href: "/admin/products", status: "Week 5" }
+];
+
+const apiDocs = [
+  {
+    group: "Health and Catalog",
+    description: "Open endpoints used in Week 2 Day 1 and Day 3 schema validation.",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/health",
+        auth: "None",
+        purpose: "Check whether the retail API is running.",
+        request: null,
+        response: {
+          status: "ok",
+          service: "sdet-retail-app",
+          authDemo: "w2d4"
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/products?search=shoe&category=Footwear",
+        auth: "None",
+        purpose: "List products with optional search and category filters.",
+        request: null,
+        response: {
+          items: [
+            {
+              id: 101,
+              name: "Running Shoes",
+              category: "Footwear",
+              price: 4499,
+              stock: 18
+            }
+          ],
+          total: 1
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/products/101",
+        auth: "None",
+        purpose: "Read one product for JsonPath, record mapping, and schema examples.",
+        request: null,
+        response: {
+          id: 101,
+          name: "Running Shoes",
+          category: "Footwear",
+          price: 4499,
+          stock: 18
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/legacy/products/101.xml",
+        auth: "None",
+        purpose: "Legacy XML endpoint used for XSD validation.",
+        request: null,
+        responseText: [
+          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+          "<product>",
+          "  <id>101</id>",
+          "  <name>Running Shoes</name>",
+          "  <category>Footwear</category>",
+          "  <price>4499</price>",
+          "</product>"
+        ].join("\n")
+      }
+    ]
+  },
+  {
+    group: "Customer Login, Cart, Orders",
+    description: "Customer flow endpoints used by UI and RestAssured create-then-read demos.",
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/auth/login",
+        auth: "None",
+        purpose: "Authenticate a classroom customer and receive a demo bearer token.",
+        request: {
+          email: "customer@example.com",
+          password: "Password@123"
+        },
+        response: {
+          token: "demo-token-1-customer",
+          user: {
+            id: 1,
+            email: "customer@example.com",
+            role: "customer",
+            name: "Customer User"
+          }
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/cart/items",
+        auth: "Bearer token",
+        purpose: "Add a product to the authenticated user's cart.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "X-Cart-Session": "classroom-session"
+        },
+        request: {
+          productId: 101,
+          quantity: 2,
+          size: "UK 9",
+          color: "Navy",
+          fulfilment: "Home delivery"
+        },
+        response: {
+          id: 1,
+          productId: 101,
+          quantity: 2,
+          product: {
+            id: 101,
+            name: "Running Shoes",
+            price: 4499
+          }
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/orders",
+        auth: "Bearer token",
+        purpose: "Create an order from the current cart.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "X-Cart-Session": "classroom-session"
+        },
+        request: {
+          paymentMethod: "Credit card",
+          deliverySlot: "Tomorrow 10 AM - 1 PM",
+          address: "UST Training Lab, Bengaluru",
+          shipping: 49,
+          discount: 0
+        },
+        response: {
+          id: 5001,
+          orderNumber: "ORD-1010",
+          status: "Confirmed",
+          payment: "Paid",
+          total: 9047
+        }
+      }
+    ]
+  },
+  {
+    group: "API Authentication",
+    description: "Week 2 Day 4 endpoints for OAuth-style bearer tokens, API keys, and negative auth tests.",
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/oauth/token",
+        auth: "Basic client credentials",
+        purpose: "Fetch a JWT-style access token for secure API tests.",
+        headers: {
+          Authorization: "Basic base64(retail-ops-client:ops-secret)",
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+        },
+        requestText: "grant_type=client_credentials",
+        response: {
+          access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          token_type: "Bearer",
+          expires_in: 3600,
+          scope: "orders:read orders:write"
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/secure/orders/5001",
+        auth: "Bearer token with orders:read",
+        purpose: "Read a secured order. Missing, invalid, or expired token returns 401.",
+        headers: {
+          Authorization: "Bearer <access_token>"
+        },
+        request: null,
+        response: {
+          id: 5001,
+          orderNumber: "ORD-5001",
+          status: "Confirmed",
+          items: [{ productId: 101, quantity: 2 }]
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/secure/orders",
+        auth: "Bearer OPS token with orders:write",
+        purpose: "Slide 23 secured create-order flow.",
+        headers: {
+          Authorization: "Bearer <ops_access_token>",
+          "Content-Type": "application/json"
+        },
+        request: {
+          items: [101, 107],
+          currency: "INR"
+        },
+        response: {
+          id: 6001,
+          orderId: 6001,
+          orderNumber: "ORD-6001",
+          status: "CREATED",
+          items: [{ productId: 101 }, { productId: 107 }]
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/partner/orders/5001",
+        auth: "X-API-Key",
+        purpose: "API-key variant for partner access tests.",
+        headers: {
+          "X-API-Key": "retail-demo-key"
+        },
+        request: null,
+        response: {
+          partner: "UST Partner Channel",
+          order: {
+            id: 5001,
+            orderNumber: "ORD-5001"
+          }
+        }
+      }
+    ]
+  },
+  {
+    group: "Negative Auth Matrix",
+    description: "Expected failures participants should assert exactly, not as generic non-200 checks.",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/secure/orders/5001",
+        auth: "Missing token",
+        purpose: "No Authorization header.",
+        request: null,
+        response: {
+          status: 401,
+          header: "WWW-Authenticate: Bearer error=\"missing_token\"",
+          body: { message: "Authentication required" }
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/secure/orders/5001",
+        auth: "Invalid or expired token",
+        purpose: "Garbage or expired bearer token.",
+        request: null,
+        response: {
+          status: 401,
+          header: "WWW-Authenticate: Bearer error=\"invalid_token\"",
+          body: { message: "Invalid access token" }
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/secure/orders",
+        auth: "Valid VIEWER token",
+        purpose: "Known caller without OPS role.",
+        request: { items: [101], currency: "INR" },
+        response: {
+          status: 403,
+          body: { message: "OPS role required" }
+        }
+      }
+    ]
+  }
 ];
 
 const products = [
@@ -788,6 +1053,8 @@ function App() {
           <SizeGuidePage />
         ) : currentPath === "/orders" ? (
           <OrdersPage ordersList={allOrders} apiUser={apiUser} cartSessionId={cartSessionId} />
+        ) : currentPath === "/api-docs" ? (
+          <ApiDocsPage />
         ) : currentPath === "/admin/products" ? (
           <AdminProductsPage />
         ) : currentPath === "/admin/orders" ? (
@@ -2504,6 +2771,94 @@ function AdminOrdersPage({ ordersList }) {
         </table>
       </section>
     </section>
+  );
+}
+
+function ApiDocsPage() {
+  return (
+    <section className="api-docs-page" aria-labelledby="api-docs-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Week 2 API reference</p>
+        <h1 id="api-docs-title">API Docs</h1>
+        <p className="lead">
+          Swagger-style classroom reference for endpoints, auth requirements, request payloads,
+          response shapes, and negative cases used in the SDET Retail API labs.
+        </p>
+        <div className="api-meta-grid" aria-label="API documentation summary">
+          <div>
+            <span>Base URL</span>
+            <strong>{apiBaseUrl}</strong>
+          </div>
+          <div>
+            <span>Customer token</span>
+            <strong>demo-token-1-customer</strong>
+          </div>
+          <div>
+            <span>Ops client</span>
+            <strong>retail-ops-client / ops-secret</strong>
+          </div>
+          <div>
+            <span>API key</span>
+            <strong>retail-demo-key</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="api-doc-groups">
+        {apiDocs.map((group) => (
+          <section className="panel api-doc-group" key={group.group} aria-labelledby={`api-${slugify(group.group)}`}>
+            <div className="api-group-header">
+              <div>
+                <p className="eyebrow">Endpoint group</p>
+                <h2 id={`api-${slugify(group.group)}`}>{group.group}</h2>
+                <p>{group.description}</p>
+              </div>
+              <span>{group.endpoints.length} endpoints</span>
+            </div>
+
+            <div className="api-endpoint-list">
+              {group.endpoints.map((endpoint) => (
+                <article className="api-endpoint" key={`${endpoint.method}-${endpoint.path}-${endpoint.auth}`}>
+                  <div className="api-endpoint-title">
+                    <span className={`method method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span>
+                    <code>{endpoint.path}</code>
+                  </div>
+                  <p>{endpoint.purpose}</p>
+
+                  <dl className="api-facts">
+                    <div>
+                      <dt>Auth</dt>
+                      <dd>{endpoint.auth}</dd>
+                    </div>
+                    <div>
+                      <dt>Group</dt>
+                      <dd>{group.group}</dd>
+                    </div>
+                  </dl>
+
+                  {endpoint.headers ? <ApiExample title="Headers" value={endpoint.headers} /> : null}
+                  {endpoint.request ? <ApiExample title="Request Body" value={endpoint.request} /> : null}
+                  {endpoint.requestText ? <ApiExample title="Request Body" value={endpoint.requestText} /> : null}
+                  {endpoint.response ? <ApiExample title="Response" value={endpoint.response} /> : null}
+                  {endpoint.responseText ? <ApiExample title="Response" value={endpoint.responseText} /> : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ApiExample({ title, value }) {
+  const content = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+
+  return (
+    <div className="api-example">
+      <span>{title}</span>
+      <pre><code>{content}</code></pre>
+    </div>
   );
 }
 

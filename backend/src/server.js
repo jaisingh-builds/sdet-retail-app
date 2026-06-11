@@ -394,7 +394,7 @@ function mapCartItem(item) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", service: "sdet-retail-app" });
+  res.json({ status: "ok", service: "sdet-retail-app", authDemo: "w2d4" });
 });
 
 app.get("/api/debug/cart-total", async (req, res) => {
@@ -705,6 +705,7 @@ app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("or
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const order = {
     id: secureOrders.length + 6001,
+    orderId: secureOrders.length + 6001,
     orderNumber: `ORD-${secureOrders.length + 6001}`,
     status: "CREATED",
     payment: "Pending",
