@@ -16,7 +16,10 @@ import {
 } from "./database.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(currentDir, "../../.env") });
+const envFile = process.env.ENV_FILE
+  ? path.resolve(process.env.ENV_FILE)
+  : path.resolve(currentDir, "../../.env");
+dotenv.config({ path: envFile, quiet: true });
 
 function requiredSecret(name) {
   const value = process.env[name];

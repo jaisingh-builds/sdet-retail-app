@@ -4,7 +4,10 @@ import path from "path";
 import mysql from "mysql2/promise";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(currentDir, "../../.env") });
+const envFile = process.env.ENV_FILE
+  ? path.resolve(process.env.ENV_FILE)
+  : path.resolve(currentDir, "../../.env");
+dotenv.config({ path: envFile, quiet: true });
 
 const connectionString = process.env.DATABASE_URL;
 const connectionTimeout = Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000);
