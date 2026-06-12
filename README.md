@@ -86,15 +86,22 @@ Backend health check:
 curl http://localhost:4000/api/health
 ```
 
-### Optional PostgreSQL Persistence For Week 2 Day 5
+### PostgreSQL Persistence For Week 2 Day 5
 
-The backend remains in-memory by default. Set `DATABASE_URL` to persist secured order APIs in PostgreSQL:
+Create the ignored local configuration once:
+
+```bash
+cp .env.example .env
+```
+
+Set `DATABASE_URL` and the required authentication secrets in `.env`, then start the API normally:
 
 ```bash
 cd backend
-export DATABASE_URL='postgresql://user:password@host:5432/database?sslmode=require'
 npm start
 ```
+
+The backend loads `../.env` automatically. Never commit the populated `.env` file or put its values in screenshots, source files, or chat groups.
 
 Check the active persistence mode:
 

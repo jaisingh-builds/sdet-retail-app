@@ -1,11 +1,65 @@
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import path from "path";
 import pg from "pg";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(currentDir, "../../.env") });
 
 const { Pool } = pg;
 const connectionString = process.env.DATABASE_URL;
-const pool = connectionString ? new Pool({ connectionString }) : null;
+const connectionTimeoutMillis = Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000);
+const pool = connectionString
+  ? new Pool({ connectionString, connectionTimeoutMillis })
+  : null;
 
 export function databaseEnabled() {
   return pool !== null;
+}
+
+export function databaseConnectionSummary() {
+  if (!connectionString) {
+    return "DATABASE_URL is not configured";
+  }
+
+  try {
+    const url = new URL(connectionString);
+    const port = url.port || "5432";
+    const database = url.pathname.replace(/^\//, "") || "<missing>";
+    const sslMode = url.searchParams.get("sslmode") || "not-set";
+    return `${url.protocol}//${url.username || "<missing-user>"}:***@${url.hostname}:${port}/${database}?sslmode=${sslMode}`;
+  } catch {
+    return "DATABASE_URL is set but is not a valid PostgreSQL URL";
+  }
+}
+
+export function databaseFailureMessage(error) {
+  const code = error?.code || error?.cause?.code || "UNKNOWN";
+  const detail = error?.message || String(error);
+  const networkCodes = new Set(["ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"]);
+
+  if (networkCodes.has(code) || /timeout|connect|network|socket/i.test(detail)) {
+    return [
+      "PostgreSQL target was configured, but the network connection failed.",
+      "Likely causes: Zscaler, VPN, proxy, firewall, corporate policy, DNS, or outbound port 5432 being blocked.",
+      "This is not a databaseEnabled=false problem. Ask IT to allow the Neon hostname on TCP port 5432, or test from an approved network.",
+      `Driver error: ${code} - ${detail}`
+    ].join("\n");
+  }
+
+  if (code === "28P01") {
+    return `Neon rejected the username or password. Copy a fresh connection string from Neon.\nDriver error: ${code} - ${detail}`;
+  }
+
+  if (code === "3D000") {
+    return `The database name in DATABASE_URL does not exist.\nDriver error: ${code} - ${detail}`;
+  }
+
+  if (code === "42501") {
+    return `The Neon role does not have permission to create or use the orders table.\nDriver error: ${code} - ${detail}`;
+  }
+
+  return `PostgreSQL initialization failed.\nDriver error: ${code} - ${detail}`;
 }
 
 export async function initializeDatabase(seedOrder) {

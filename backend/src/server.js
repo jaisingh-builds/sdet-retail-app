@@ -7,6 +7,8 @@ import { fileURLToPath } from "url";
 import path from "path";
 import {
   databaseEnabled,
+  databaseConnectionSummary,
+  databaseFailureMessage,
   deleteOrder,
   findOrder,
   initializeDatabase,
@@ -860,12 +862,20 @@ app.get("/api/admin/orders", requireAuth, requireAdmin, (_req, res) => {
 });
 
 try {
+  console.log(`Database enabled: ${databaseEnabled()}`);
+  console.log(`Database target: ${databaseConnectionSummary()}`);
   await initializeDatabase(secureOrders[0]);
+  if (databaseEnabled()) {
+    console.log("PostgreSQL connection and schema initialization succeeded.");
+  }
   app.listen(port, () => {
     const persistence = databaseEnabled() ? "PostgreSQL" : "in-memory data";
     console.log(`SDET Retail Automation Lab API listening on http://localhost:${port} using ${persistence}`);
   });
 } catch (error) {
-  console.error("Retail API failed to initialize", error);
+  console.error("Retail API failed to initialize PostgreSQL.");
+  console.error(`Database enabled: ${databaseEnabled()}`);
+  console.error(`Database target: ${databaseConnectionSummary()}`);
+  console.error(databaseFailureMessage(error));
   process.exit(1);
 }
