@@ -13,7 +13,7 @@ ReactJS frontend
   |
 POS / retail API service
   |
-  |-- PostgreSQL
+  |-- MySQL
   |-- OMS service
   |-- WireMock: payment, inventory, shipping, notification
 ```
@@ -29,7 +29,7 @@ The app should not become a large production-style microservice platform. The go
 - `wiremock/`: Mock-service starter mappings.
 - `docker-compose.yml`: Local service orchestration starter.
 - `docs/development-plan.md`: Development roadmap for the full classroom app.
-- `docs/architecture-decision.md`: Architecture decisions for ReactJS, NestJS, PostgreSQL, microservices, WireMock, and Pact.
+- `docs/architecture-decision.md`: Architecture decisions for ReactJS, NestJS, MySQL, microservices, WireMock, and Pact.
 
 ## Seed Credentials
 
@@ -86,7 +86,7 @@ Backend health check:
 curl http://localhost:4000/api/health
 ```
 
-### PostgreSQL Persistence For Week 2 Day 5
+### MySQL Persistence For Week 2 Day 5
 
 Create the ignored local configuration once:
 
@@ -109,13 +109,13 @@ Check the active persistence mode:
 curl http://localhost:4000/api/health
 ```
 
-Expected when PostgreSQL is enabled:
+Expected when MySQL is enabled:
 
 ```json
-{"persistence":"postgres"}
+{"persistence":"mysql"}
 ```
 
-PostgreSQL-backed Day 5 routes:
+MySQL-backed Day 5 routes:
 
 - `POST /api/secure/orders`
 - `GET /api/secure/orders/{id}`

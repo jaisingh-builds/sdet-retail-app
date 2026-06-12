@@ -11,7 +11,7 @@ ReactJS frontend
   |
 POS / retail API service
   |
-  |-- PostgreSQL
+  |-- MySQL
   |-- OMS service
   |-- WireMock external services
 ```
@@ -23,7 +23,7 @@ POS / retail API service
 | Frontend | ReactJS |
 | Frontend tooling | Vite |
 | Backend services | NestJS |
-| Database | PostgreSQL |
+| Database | MySQL |
 | ORM | Prisma |
 | Service virtualisation | WireMock |
 | Consumer-driven contracts | Pact |
@@ -83,7 +83,7 @@ Use these names consistently:
 - `frontend`: ReactJS UI.
 - `pos-service`: customer-facing retail API and checkout orchestration.
 - `oms-service`: order management service.
-- `postgres`: persistent database.
+- `mysql`: persistent database.
 - `wiremock`: external service virtualisation.
 - `pact-broker`: optional local Pact broker for Week 4 and Week 7.
 

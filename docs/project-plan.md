@@ -38,7 +38,7 @@ ReactJS frontend
   |
 POS / retail API service
   |
-  |-- PostgreSQL
+  |-- MySQL
   |-- OMS service
   |-- WireMock external services
 ```
@@ -51,7 +51,7 @@ Target stack:
 | --- | --- |
 | Frontend | ReactJS with Vite tooling |
 | Backend services | NestJS |
-| Database | PostgreSQL |
+| Database | MySQL |
 | ORM | Prisma |
 | Service virtualisation | WireMock |
 | Consumer-driven contracts | Pact |

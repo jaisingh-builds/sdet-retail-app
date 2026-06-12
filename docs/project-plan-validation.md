@@ -34,7 +34,7 @@ This snapshot compares the current classroom app with `UST_SDET_Project_Plan.md`
 | Milestone | Status |
 | --- | --- |
 | NestJS POS service | Planned; current backend remains Express classroom starter. |
-| PostgreSQL + Prisma | Planned. |
+| MySQL + Prisma | Planned. |
 | OMS microservice slice | Planned for contract-testing phase. |
 | Pact POS-to-OMS tests | Planned for Week 4. |
 | WireMock payment, inventory, shipping, notification integrations | Starter mappings exist; full app integration pending. |
@@ -44,5 +44,5 @@ This snapshot compares the current classroom app with `UST_SDET_Project_Plan.md`
 
 The current app is now strong enough for Week 1 UI automation and usable as the same domain for
 Week 2 API chaining. It should not yet be presented as the finished enterprise microservice target;
-it is the controlled classroom starter that leads into the planned NestJS, PostgreSQL, OMS,
+it is the controlled classroom starter that leads into the planned NestJS, MySQL, OMS,
 WireMock, and Pact milestones.

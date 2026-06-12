@@ -421,7 +421,7 @@ app.get("/api/health", (_req, res) => {
     status: "ok",
     service: "sdet-retail-app",
     authDemo: "w2d4",
-    persistence: databaseEnabled() ? "postgres" : "memory"
+    persistence: databaseEnabled() ? "mysql" : "memory"
   });
 });
 
@@ -866,14 +866,14 @@ try {
   console.log(`Database target: ${databaseConnectionSummary()}`);
   await initializeDatabase(secureOrders[0]);
   if (databaseEnabled()) {
-    console.log("PostgreSQL connection and schema initialization succeeded.");
+    console.log("MySQL connection and schema initialization succeeded.");
   }
   app.listen(port, () => {
-    const persistence = databaseEnabled() ? "PostgreSQL" : "in-memory data";
+    const persistence = databaseEnabled() ? "MySQL" : "in-memory data";
     console.log(`SDET Retail Automation Lab API listening on http://localhost:${port} using ${persistence}`);
   });
 } catch (error) {
-  console.error("Retail API failed to initialize PostgreSQL.");
+  console.error("Retail API failed to initialize MySQL.");
   console.error(`Database enabled: ${databaseEnabled()}`);
   console.error(`Database target: ${databaseConnectionSummary()}`);
   console.error(databaseFailureMessage(error));

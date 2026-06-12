@@ -23,7 +23,7 @@ sdet-retail-app
 ├── services/
 │   ├── pos-service/       NestJS POS/retail API
 │   └── oms-service/       NestJS order management service
-├── database/              PostgreSQL schema, migrations, reset scripts
+├── database/              MySQL schema, migrations, reset scripts
 ├── seed-data/             Users, products, orders, and scenario fixtures
 ├── wiremock/              Payment, shipping, inventory, notification mocks
 ├── docs/                  Project, development, backup, and trainer notes
@@ -37,7 +37,7 @@ sdet-retail-app
 | --- | --- | --- |
 | Frontend | ReactJS + Vite | ReactJS is the UI library; Vite is the fast local build/dev tool. |
 | Backend services | NestJS | Structured modules, DTOs, validation, Swagger/OpenAPI support, and enterprise-style organization. |
-| Database | PostgreSQL | Enterprise-relevant DB validation practice. |
+| Database | MySQL | Enterprise-relevant DB validation practice. |
 | ORM/query | Prisma | Repeatable schema, migrations, and seed workflows. |
 | Mock services | WireMock | Clear request/response mapping for payment and notification labs. |
 | Contracts | Pact | Consumer-driven contract testing for POS-to-OMS integration. |
@@ -72,7 +72,7 @@ Goal: Implement a proper POS/retail API with persistent data and resettable stat
 Deliverables:
 
 - NestJS POS service scaffold.
-- PostgreSQL integration.
+- MySQL integration.
 - Database schema for users, products, carts, orders, order items, and profile data.
 - Migration and seed scripts.
 - Auth endpoints:
@@ -365,7 +365,7 @@ Minimum orders:
 ```env
 POS_SERVICE_PORT=4000
 OMS_SERVICE_PORT=4010
-DATABASE_URL=postgresql://retail:retail@localhost:5432/sdet_retail
+DATABASE_URL=mysql://sdet_user:sdet_password@localhost:3306/sdet_retail
 JWT_SECRET=
 OMS_SERVICE_URL=http://localhost:4010
 PAYMENT_SERVICE_URL=http://localhost:8089
