@@ -12,7 +12,8 @@ import {
   deleteOrder,
   findOrder,
   initializeDatabase,
-  insertOrder
+  insertOrder,
+  updateOrderStatus
 } from "./database.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -761,6 +762,48 @@ app.post("/api/secure/orders", requireAuth, requireRole("OPS"), requireScope("or
   secureOrders.push(order);
   res.location(`/api/secure/orders/${order.id}`).status(201).json(order);
 });
+
+async function transitionSecureOrder(req, res, expectedStatus, nextStatus) {
+  const orderId = Number(req.params.id);
+  const existingOrder = databaseEnabled()
+    ? await findOrder(orderId)
+    : secureOrders.find((item) => item.id === orderId);
+
+  if (!existingOrder) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+  if (existingOrder.status !== expectedStatus) {
+    return res.status(409).json({
+      message: `Cannot move order from ${existingOrder.status} to ${nextStatus}`,
+      currentStatus: existingOrder.status,
+      expectedStatus
+    });
+  }
+
+  if (databaseEnabled()) {
+    const updatedOrder = await updateOrderStatus(orderId, expectedStatus, nextStatus);
+    return res.json(updatedOrder);
+  }
+
+  existingOrder.status = nextStatus;
+  res.json(existingOrder);
+}
+
+app.post(
+  "/api/secure/orders/:id/allocate",
+  requireAuth,
+  requireRole("OPS"),
+  requireScope("orders:write"),
+  (req, res) => transitionSecureOrder(req, res, "CREATED", "ALLOCATED")
+);
+
+app.post(
+  "/api/secure/orders/:id/ship",
+  requireAuth,
+  requireRole("OPS"),
+  requireScope("orders:write"),
+  (req, res) => transitionSecureOrder(req, res, "ALLOCATED", "SHIPPED")
+);
 
 app.delete("/api/secure/orders/:id", requireAuth, requireRole("OPS"), requireScope("orders:write"), async (req, res) => {
   if (databaseEnabled()) {

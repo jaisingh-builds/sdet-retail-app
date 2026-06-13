@@ -148,6 +148,14 @@ export async function deleteOrder(orderId) {
   return result.affectedRows;
 }
 
+export async function updateOrderStatus(orderId, expectedStatus, nextStatus) {
+  const [result] = await pool.execute(
+    "UPDATE orders SET status = ? WHERE id = ? AND status = ?",
+    [nextStatus, orderId, expectedStatus]
+  );
+  return result.affectedRows === 1 ? findOrder(orderId) : null;
+}
+
 function mapOrderRow(row) {
   return {
     id: Number(row.id),

@@ -285,6 +285,50 @@ paths:
           description: Missing or invalid access token
         "404":
           description: Order not found
+  /api/secure/orders/{id}/allocate:
+    post:
+      summary: Allocate a created order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order moved from CREATED to ALLOCATED
+        "401":
+          description: Missing or invalid access token
+        "403":
+          description: Token does not have the OPS role or write scope
+        "404":
+          description: Order not found
+        "409":
+          description: Order is not in CREATED state
+  /api/secure/orders/{id}/ship:
+    post:
+      summary: Ship an allocated order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order moved from ALLOCATED to SHIPPED
+        "401":
+          description: Missing or invalid access token
+        "403":
+          description: Token does not have the OPS role or write scope
+        "404":
+          description: Order not found
+        "409":
+          description: Order is not in ALLOCATED state
   /api/partner/orders/{id}:
     get:
       summary: Get an order using a partner API key

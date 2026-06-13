@@ -121,6 +121,12 @@ MySQL-backed Day 5 routes:
 - `GET /api/secure/orders/{id}`
 - `DELETE /api/secure/orders/{id}` for targeted test cleanup
 
+Gate 2 lifecycle routes:
+
+- `POST /api/secure/orders/{id}/allocate` moves `CREATED` to `ALLOCATED`
+- `POST /api/secure/orders/{id}/ship` moves `ALLOCATED` to `SHIPPED`
+- An invalid lifecycle transition returns `409 Conflict`
+
 Without `DATABASE_URL`, these routes continue using in-memory classroom data.
 
 This starter API is intentionally small. It exists so the automation repos have a runnable target immediately. The planned build will evolve this into NestJS-based POS/retail and OMS services.
