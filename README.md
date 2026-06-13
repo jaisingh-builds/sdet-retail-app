@@ -96,6 +96,12 @@ cp .env.example .env
 
 Set `DATABASE_URL` and the required authentication secrets in `.env`, then start the API normally:
 
+If the MySQL password contains `@`, encode it as `%40` inside the URL. For example, password `Training@123` becomes:
+
+```env
+DATABASE_URL=mysql://sdet_user:Training%40123@localhost:3306/sdet_retail
+```
+
 ```bash
 cd backend
 npm start

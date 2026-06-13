@@ -301,6 +301,58 @@ const apiDocs = [
         }
       }
     ]
+  },
+  {
+    group: "Gate 2 Order Lifecycle",
+    description: "Week 2 Day 6 endpoints for state transitions, schema checks, and database reconciliation.",
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/secure/orders/{id}/allocate",
+        auth: "Bearer OPS token with orders:write",
+        purpose: "Move an order from CREATED to ALLOCATED.",
+        headers: {
+          Authorization: "Bearer <ops_access_token>",
+          "Content-Type": "application/json"
+        },
+        response: {
+          id: 6001,
+          orderId: 6001,
+          orderNumber: "ORD-6001",
+          status: "ALLOCATED"
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/secure/orders/{id}/ship",
+        auth: "Bearer OPS token with orders:write",
+        purpose: "Move an allocated order from ALLOCATED to SHIPPED.",
+        headers: {
+          Authorization: "Bearer <ops_access_token>",
+          "Content-Type": "application/json"
+        },
+        response: {
+          id: 6001,
+          orderId: 6001,
+          orderNumber: "ORD-6001",
+          status: "SHIPPED"
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/secure/orders/{id}/ship",
+        auth: "Bearer OPS token with orders:write",
+        purpose: "Reject shipping before allocation with an exact conflict response.",
+        response: {
+          status: 409,
+          body: {
+            message: "Cannot move order from CREATED to SHIPPED",
+            currentStatus: "CREATED",
+            expectedStatus: "ALLOCATED"
+          }
+        }
+      }
+    ]
   }
 ];
 
@@ -2818,7 +2870,10 @@ function ApiDocsPage() {
 
             <div className="api-endpoint-list">
               {group.endpoints.map((endpoint) => (
-                <article className="api-endpoint" key={`${endpoint.method}-${endpoint.path}-${endpoint.auth}`}>
+                <article
+                  className="api-endpoint"
+                  key={`${endpoint.method}-${endpoint.path}-${endpoint.auth}-${endpoint.purpose}`}
+                >
                   <div className="api-endpoint-title">
                     <span className={`method method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span>
                     <code>{endpoint.path}</code>
