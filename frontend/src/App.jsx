@@ -1407,6 +1407,7 @@ function CatalogPage({ onNavigate }) {
         <label className="field" htmlFor="search-products">
           <span>Search products</span>
           <input
+            data-test="search-input"
             id="search-products"
             type="search"
             value={searchTerm}
@@ -1435,16 +1436,26 @@ function CatalogPage({ onNavigate }) {
 
         <label className="field" htmlFor="sort-products">
           <span>Sort by</span>
-          <select id="sort-products" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+          <select
+            data-test="sort-select"
+            id="sort-products"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value)}
+          >
             <option>Recommended</option>
-            <option>Price: low to high</option>
+            <option value="Price: low to high">Price: Low to High</option>
             <option>Rating</option>
           </select>
         </label>
       </form>
 
       <div className="catalog-toolbar">
-        <p className="inline-status" role="status" data-testid="catalog-result-count">
+        <p
+          className="inline-status"
+          role="status"
+          data-test="catalog-result-count"
+          data-testid="catalog-result-count"
+        >
           {searchStatus === "loading" ? "Searching products..." : `Showing ${visibleProducts.length} ${resultLabel}`}
         </p>
         <span>Search is API-backed. Sorting and pagination stay client-side for UI practice.</span>
@@ -1474,6 +1485,7 @@ function CatalogPage({ onNavigate }) {
           <article
             className="product-card"
             aria-label={product.name}
+            data-test="product-card"
             data-testid="product-card"
             key={product.slug}
           >
@@ -1483,7 +1495,7 @@ function CatalogPage({ onNavigate }) {
             </div>
             <div>
               <p className="eyebrow">{product.category}</p>
-              <h2>{product.name}</h2>
+              <h2 data-test="product-title">{product.name}</h2>
               <p className="table-note">{product.brand} · {product.sku}</p>
               <p>{product.summary}</p>
               <div className="tag-row" aria-label={`${product.name} tags`}>
@@ -1494,7 +1506,7 @@ function CatalogPage({ onNavigate }) {
               <dl className="product-meta">
                 <div>
                   <dt>Price</dt>
-                  <dd>{formatPrice(product.price)}</dd>
+                  <dd data-test="product-price">{formatPrice(product.price)}</dd>
                 </div>
                 <div>
                   <dt>Rating</dt>
@@ -1509,6 +1521,7 @@ function CatalogPage({ onNavigate }) {
             <div className="card-footer">
               <span>{product.delivery}</span>
               <span>{product.returnWindow}</span>
+              <span className="quick-view" data-test="quick-view">Quick view ready</span>
             </div>
             <a
               className="button primary"
@@ -1525,7 +1538,7 @@ function CatalogPage({ onNavigate }) {
       </div>
 
       {searchStatus === "ready" && visibleProducts.length === 0 ? (
-        <section className="panel" data-testid="empty-search" role="status">
+        <section className="panel" data-test="empty-search" data-testid="empty-search" role="status">
           <h2>No products found</h2>
           <p>Try a different search term or category.</p>
         </section>
@@ -1815,7 +1828,7 @@ function ProductPage({ product, onAddToCart }) {
           <strong>{product.brand}</strong>
         </div>
         <p className="eyebrow">{product.category}</p>
-        <h1 id="product-title">{product.name}</h1>
+        <h1 id="product-title" data-test="detail-name">{product.name}</h1>
         <p className="lead">{product.summary}</p>
         <p className="price">{formatPrice(product.price)}</p>
         <div className="tag-row" aria-label="Product tags">
@@ -1912,6 +1925,7 @@ function ProductPage({ product, onAddToCart }) {
         <div className="product-actions">
           <button
             className="button primary"
+            data-test="add-to-cart"
             type="button"
             disabled={addStatus === "loading"}
             onClick={addSelectedItemToCart}
@@ -2014,7 +2028,7 @@ function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearC
           through the same service.
         </p>
         <p>
-          Cart count: <strong data-testid="cart-count">{cartCount}</strong>
+          Cart count: <strong data-test="cart-count" data-testid="cart-count">{cartCount}</strong>
         </p>
 
         {cartStatus === "loading" ? (

@@ -897,6 +897,14 @@ h2 {
   font-weight: 900;
 }
 
+.card-footer .quick-view {
+  visibility: hidden;
+}
+
+.product-card:hover .quick-view {
+  visibility: visible;
+}
+
 .option-group {
   display: flex;
   flex-wrap: wrap;
