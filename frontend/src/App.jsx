@@ -952,6 +952,13 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const pageTitle = currentPath === "/catalog" || currentPath === "/products"
+      ? "Product Catalog"
+      : "SDET Retail Automation Lab";
+    document.title = `${pageTitle} | SDET Retail Automation Lab`;
+  }, [currentPath]);
+
+  useEffect(() => {
     if (currentPath !== "/cart" && currentPath !== "/checkout") {
       return;
     }
@@ -1389,7 +1396,7 @@ function CatalogPage({ onNavigate }) {
     <section className="catalog-page" aria-labelledby="catalog-title">
       <div className="hero-copy">
         <p className="eyebrow">Day 4 navigation lab</p>
-        <h1 id="catalog-title">Product Catalog</h1>
+        <h1 id="catalog-title" data-test="catalog-title">Product Catalog</h1>
         <p className="lead">
           Practice realistic retail navigation with filters, sorting, product cards, and page
           transition assertions.
