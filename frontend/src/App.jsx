@@ -1015,7 +1015,12 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Header currentPath={currentPath} currentUser={currentUser} onNavigate={navigate} />
+      <Header
+        cartCount={cartCount}
+        currentPath={currentPath}
+        currentUser={currentUser}
+        onNavigate={navigate}
+      />
 
       <main className="page" id="main-content">
         {currentPath === "/login" ? (
@@ -1126,7 +1131,7 @@ function App() {
   );
 }
 
-function Header({ currentPath, currentUser, onNavigate }) {
+function Header({ cartCount, currentPath, currentUser, onNavigate }) {
   return (
     <header className="top-bar">
       <a
@@ -1149,6 +1154,7 @@ function Header({ currentPath, currentUser, onNavigate }) {
         {navItems.map((item) => (
           <a
             key={item.href}
+            data-test={item.href === "/cart" ? "cart-icon" : undefined}
             href={item.href}
             aria-current={currentPath === item.href ? "page" : undefined}
             onClick={(event) => {
@@ -1157,6 +1163,11 @@ function Header({ currentPath, currentUser, onNavigate }) {
             }}
           >
             {item.label}
+            {item.href === "/cart" ? (
+              <span className="nav-badge" data-test="cart-count" data-testid="header-cart-count">
+                {cartCount}
+              </span>
+            ) : null}
           </a>
         ))}
       </nav>
@@ -2019,7 +2030,7 @@ function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearC
   };
 
   return (
-    <section className="cart-layout" aria-labelledby="cart-title">
+    <section className="cart-layout" data-test="cart-page" aria-labelledby="cart-title">
       <div className="hero-copy">
         <p className="eyebrow">Dialog validation lab</p>
         <h1 id="cart-title">Cart</h1>
@@ -2043,7 +2054,7 @@ function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearC
           <>
             <div className="cart-items" aria-label="Cart items">
               {items.map((item) => (
-                <div className="cart-row" key={item.id}>
+                <div className="cart-row" data-test="cart-line" key={item.id}>
                   <span>
                     <strong>{item.name}</strong>
                     <small>{item.sku}</small>
@@ -2082,7 +2093,7 @@ function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearC
               </div>
               <div>
                 <dt>Total</dt>
-                <dd data-testid="order-total">{formatPrice(subtotal + shippingCost)}</dd>
+                <dd data-test="cart-total" data-testid="order-total">{formatPrice(subtotal + shippingCost)}</dd>
               </div>
             </dl>
 
@@ -2094,7 +2105,12 @@ function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearC
               <span>DELETE /api/cart/items/:id</span>
             </section>
 
-            <button className="button primary" type="button" onClick={() => onNavigate("/checkout")}>
+            <button
+              className="button primary"
+              data-test="checkout-button"
+              type="button"
+              onClick={() => onNavigate("/checkout")}
+            >
               Proceed to checkout
             </button>
             <button className="button secondary" type="button" onClick={onClearCart}>
@@ -2168,7 +2184,11 @@ function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder
       </div>
 
       {confirmation ? (
-        <section className="confirmation-panel" aria-labelledby="confirmation-title">
+        <section
+          className="confirmation-panel"
+          data-test="order-confirmation"
+          aria-labelledby="confirmation-title"
+        >
           <p className="eyebrow">Order created</p>
           <h2 id="confirmation-title">Thank you for your order</h2>
           <p>
@@ -2294,7 +2314,7 @@ function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder
                 <dd data-testid="checkout-total">{formatPrice(total)}</dd>
               </div>
             </dl>
-            <button className="button primary" type="submit">
+            <button className="button primary" data-test="place-order" type="submit">
               Place order
             </button>
           </section>
