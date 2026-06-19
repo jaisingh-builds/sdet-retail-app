@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
-const apiBaseUrl = import.meta.env.VITE_POS_API_URL || "http://localhost:4000";
+const defaultApiBaseUrl =
+  window.location.hostname && !["localhost", "127.0.0.1"].includes(window.location.hostname)
+    ? `${window.location.protocol}//${window.location.hostname}:4000`
+    : "http://localhost:4000";
+const apiBaseUrl = import.meta.env.VITE_POS_API_URL || defaultApiBaseUrl;
 const classroomCustomer = {
   email: "customer@example.com",
   name: "Customer User",
@@ -1428,7 +1432,7 @@ function CatalogPage({ onNavigate }) {
           />
         </label>
 
-        <button className="button primary filter-submit" type="submit">
+        <button className="button primary filter-submit" data-test="search-button" type="submit">
           Search
         </button>
 
