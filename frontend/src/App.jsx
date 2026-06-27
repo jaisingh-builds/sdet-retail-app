@@ -1867,7 +1867,9 @@ function ProductPage({ product, onAddToCart }) {
           </div>
           <div>
             <dt>Availability</dt>
-            <dd>{product.stock} in stock</dd>
+            <dd data-testid="availability-badge">
+              {product.stock > 0 ? "In stock" : "Out of stock"}
+            </dd>
           </div>
           <div>
             <dt>Delivery</dt>
