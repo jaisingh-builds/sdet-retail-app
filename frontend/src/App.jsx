@@ -3238,11 +3238,18 @@ function PosOfflineLabPage({ currentUser }) {
 
       setStatusMessage("All queued sales are synced.");
     } catch {
-      nextOutbox = nextOutbox.map((item) =>
-        item.status === "synced" ? item : { ...item, status: "retrying" }
-      );
+      const rolledBackCount = nextOutbox.filter(
+        (item) => item.status !== "synced" && item.queuedWhileOnline
+      ).length;
+      nextOutbox = nextOutbox
+        .filter((item) => item.status === "synced" || !item.queuedWhileOnline)
+        .map((item) => (item.status === "synced" ? item : { ...item, status: "retrying" }));
       persistOutbox(nextOutbox);
-      setStatusMessage("Sync failed. Sale is still queued and will retry.");
+      setStatusMessage(
+        rolledBackCount > 0
+          ? "Sync failed. Optimistic sale rolled back."
+          : "Sync failed. Sale is still queued and will retry."
+      );
       if (window.navigator.onLine) {
         window.clearTimeout(retryTimerRef.current);
         retryTimerRef.current = window.setTimeout(() => {
@@ -3285,6 +3292,7 @@ function PosOfflineLabPage({ currentUser }) {
       total: featuredProduct.price,
       cashier: currentUser.email,
       status: "pending",
+      queuedWhileOnline: window.navigator.onLine,
       queuedAt: new Date().toISOString()
     };
     const nextOutbox = [sale, ...readPosOutbox()];
@@ -3320,9 +3328,13 @@ function PosOfflineLabPage({ currentUser }) {
           className={`network-banner ${isOnline ? "online" : "offline"}`}
           role="status"
           data-testid="network-banner"
+          data-online={String(isOnline)}
         >
           {isOnline ? "Online - sales sync normally" : "Offline - sales will be queued"}
         </div>
+        <span className="visually-hidden" data-testid="net-state" data-online={String(isOnline)}>
+          {isOnline ? "online" : "offline"}
+        </span>
 
         <div className="pos-actions">
           <button className="button primary" type="button" onClick={queueSale}>
@@ -3383,7 +3395,11 @@ function PosOfflineLabPage({ currentUser }) {
             </thead>
             <tbody>
               {outbox.map((sale) => (
-                <tr key={sale.clientSaleId} data-testid="outbox-row">
+                <tr
+                  key={sale.clientSaleId}
+                  data-testid="outbox-row"
+                  data-pending={String(sale.status === "pending" || sale.status === "retrying")}
+                >
                   <td>{sale.clientSaleId}</td>
                   <td>{sale.productName}</td>
                   <td data-testid="outbox-status">{sale.status}</td>
