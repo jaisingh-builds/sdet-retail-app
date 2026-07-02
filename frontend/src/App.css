@@ -686,6 +686,54 @@ h2 {
   align-items: start;
 }
 
+.pos-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.pos-layout .hero-copy,
+.pos-outbox {
+  grid-column: 1 / -1;
+}
+
+.network-banner {
+  width: fit-content;
+  margin-bottom: 18px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-weight: 900;
+}
+
+.network-banner.online {
+  border: 1px solid #aad6c5;
+  background: #eefaf5;
+  color: var(--success);
+}
+
+.network-banner.offline {
+  border: 1px solid #e7b0a8;
+  background: #fff1ef;
+  color: var(--danger);
+}
+
+.pos-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.success-note {
+  margin: 14px 0 0;
+  border: 1px solid #aad6c5;
+  border-radius: 6px;
+  background: #eefaf5;
+  color: var(--success);
+  padding: 10px 12px;
+  font-weight: 900;
+}
+
 .catalog-page,
 .product-layout {
   display: grid;
@@ -1503,6 +1551,7 @@ tr:last-child td {
   .api-meta-grid,
   .api-endpoint-list,
   .checkout-layout,
+  .pos-layout,
   .admin-layout,
   .a11y-lab-layout,
   .debug-layout,

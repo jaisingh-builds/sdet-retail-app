@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const defaultApiBaseUrl =
   window.location.hostname && !["localhost", "127.0.0.1"].includes(window.location.hostname)
@@ -37,6 +37,7 @@ const navItems = [
   { label: "Frames", href: "/frames-lab", status: "Day 4" },
   { label: "A11y Lab", href: "/a11y-lab", status: "Day 4" },
   { label: "Debug", href: "/debug-lab", status: "Day 5" },
+  { label: "POS", href: "/pos", status: "W5D4" },
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Checkout", href: "/checkout", status: "Week 4" },
   { label: "Orders", href: "/orders", status: "Week 2" },
@@ -774,6 +775,19 @@ function readCartSessionId() {
   return sessionId;
 }
 
+function readPosOutbox() {
+  try {
+    const stored = window.localStorage.getItem("sdet-retail-pos-outbox");
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePosOutbox(items) {
+  window.localStorage.setItem("sdet-retail-pos-outbox", JSON.stringify(items));
+}
+
 function mapApiCartItem(item) {
   const catalogProduct = products.find((candidate) => candidate.id === item.productId);
   const product = { ...catalogProduct, ...item.product };
@@ -1041,6 +1055,8 @@ function App() {
           <AccessibilityLabPage />
         ) : currentPath === "/debug-lab" ? (
           <DebugLabPage />
+        ) : currentPath === "/pos" ? (
+          <PosOfflineLabPage currentUser={apiUser} />
         ) : currentPath.startsWith("/product/") ? (
           <ProductPage
             product={findProduct(currentPath.replace("/product/", ""))}
@@ -3160,6 +3176,224 @@ function SyncLabPage() {
           </table>
         ) : null}
       </div>
+    </section>
+  );
+}
+
+function PosOfflineLabPage({ currentUser }) {
+  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
+  const [outbox, setOutbox] = useState(readPosOutbox);
+  const [statusMessage, setStatusMessage] = useState("Ready to take a sale.");
+  const [lastSyncedSale, setLastSyncedSale] = useState(null);
+  const syncingRef = useRef(false);
+  const retryTimerRef = useRef(null);
+  const featuredProduct = products[0];
+  const pendingSales = outbox.filter((sale) => sale.status !== "synced");
+
+  const persistOutbox = (nextOutbox) => {
+    writePosOutbox(nextOutbox);
+    setOutbox(nextOutbox);
+  };
+
+  const flushOutbox = async () => {
+    if (syncingRef.current) {
+      return;
+    }
+
+    const latestOutbox = readPosOutbox();
+    const waitingSales = latestOutbox.filter((sale) => sale.status !== "synced");
+    if (!window.navigator.onLine || waitingSales.length === 0) {
+      return;
+    }
+
+    syncingRef.current = true;
+    setStatusMessage("Syncing queued sales...");
+
+    let nextOutbox = latestOutbox;
+    try {
+      for (const sale of waitingSales) {
+        const response = await fetch(`${apiBaseUrl}/api/sales`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${currentUser.token}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": sale.clientSaleId
+          },
+          body: JSON.stringify(sale)
+        });
+
+        if (!response.ok) {
+          throw new Error("Sale sync failed");
+        }
+
+        const syncedSale = await response.json();
+        nextOutbox = nextOutbox.map((item) =>
+          item.clientSaleId === sale.clientSaleId
+            ? { ...item, status: "synced", serverSaleId: syncedSale.id }
+            : item
+        );
+        persistOutbox(nextOutbox);
+        setLastSyncedSale(syncedSale);
+      }
+
+      setStatusMessage("All queued sales are synced.");
+    } catch {
+      nextOutbox = nextOutbox.map((item) =>
+        item.status === "synced" ? item : { ...item, status: "retrying" }
+      );
+      persistOutbox(nextOutbox);
+      setStatusMessage("Sync failed. Sale is still queued and will retry.");
+      if (window.navigator.onLine) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = window.setTimeout(() => {
+          flushOutbox();
+        }, 500);
+      }
+    } finally {
+      syncingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      const nextOnline = window.navigator.onLine;
+      setIsOnline(nextOnline);
+      setStatusMessage(
+        nextOnline ? "Connection restored. Checking queued sales." : "Offline mode: sales will be queued."
+      );
+      if (nextOnline) {
+        window.setTimeout(() => flushOutbox(), 0);
+      }
+    };
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+      window.clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
+  const queueSale = () => {
+    const sale = {
+      clientSaleId: `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      productId: featuredProduct.id,
+      productName: featuredProduct.name,
+      quantity: 1,
+      total: featuredProduct.price,
+      cashier: currentUser.email,
+      status: "pending",
+      queuedAt: new Date().toISOString()
+    };
+    const nextOutbox = [sale, ...readPosOutbox()];
+    persistOutbox(nextOutbox);
+    setStatusMessage(
+      window.navigator.onLine
+        ? "Sale queued locally. Sync will start now."
+        : "Sale queued locally while offline."
+    );
+    if (window.navigator.onLine) {
+      window.setTimeout(() => flushOutbox(), 0);
+    }
+  };
+
+  const resetOutbox = () => {
+    window.clearTimeout(retryTimerRef.current);
+    persistOutbox([]);
+    setLastSyncedSale(null);
+    setStatusMessage("POS outbox reset.");
+  };
+
+  return (
+    <section className="pos-layout" aria-labelledby="pos-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Week 5 Day 4 offline lab</p>
+        <h1 id="pos-title">Resilient POS</h1>
+        <p className="lead">
+          Simulate a cashier sale during a network drop. The page shows the connection truth,
+          queues the sale locally, and syncs it exactly once when the network returns.
+        </p>
+
+        <div
+          className={`network-banner ${isOnline ? "online" : "offline"}`}
+          role="status"
+          data-testid="network-banner"
+        >
+          {isOnline ? "Online - sales sync normally" : "Offline - sales will be queued"}
+        </div>
+
+        <div className="pos-actions">
+          <button className="button primary" type="button" onClick={queueSale}>
+            Queue sale
+          </button>
+          <button className="button secondary" type="button" onClick={flushOutbox}>
+            Sync now
+          </button>
+          <button className="button secondary danger" type="button" onClick={resetOutbox}>
+            Reset lab
+          </button>
+        </div>
+      </div>
+
+      <section className="panel" aria-labelledby="pos-sale-title">
+        <h2 id="pos-sale-title">Counter sale</h2>
+        <dl className="summary-list">
+          <div>
+            <dt>Item</dt>
+            <dd>{featuredProduct.name}</dd>
+          </div>
+          <div>
+            <dt>Quantity</dt>
+            <dd>1</dd>
+          </div>
+          <div>
+            <dt>Total</dt>
+            <dd data-testid="pos-sale-total">{formatPrice(featuredProduct.price)}</dd>
+          </div>
+        </dl>
+        <p className="inline-status" role="status" data-testid="pos-sync-status">
+          {statusMessage}
+        </p>
+        <p>
+          Pending outbox: <strong data-testid="outbox-count">{pendingSales.length}</strong>
+        </p>
+        {lastSyncedSale ? (
+          <p className="success-note" data-testid="last-synced-sale">
+            Last synced sale: {lastSyncedSale.saleNumber}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="panel pos-outbox" aria-labelledby="pos-outbox-title">
+        <h2 id="pos-outbox-title">Local outbox</h2>
+        {outbox.length === 0 ? (
+          <p role="status">No queued sales.</p>
+        ) : (
+          <table>
+            <caption>Queued POS sales</caption>
+            <thead>
+              <tr>
+                <th>Client sale id</th>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {outbox.map((sale) => (
+                <tr key={sale.clientSaleId} data-testid="outbox-row">
+                  <td>{sale.clientSaleId}</td>
+                  <td>{sale.productName}</td>
+                  <td data-testid="outbox-status">{sale.status}</td>
+                  <td>{formatPrice(sale.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </section>
   );
 }

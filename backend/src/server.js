@@ -178,6 +178,7 @@ products = products.map((product) => ({ ...product, ...productSearchMetadata[pro
 
 let cart = [];
 let orders = [];
+let sales = [];
 let nextCartItemId = 1;
 
 const secureOrders = [
@@ -720,6 +721,53 @@ app.get("/api/orders/:id", requireAuth, (req, res) => {
     return res.status(404).json({ message: "Order not found" });
   }
   res.json(order);
+});
+
+app.post("/api/sales", requireAuth, (req, res) => {
+  const clientSaleId = limitText(req.body.clientSaleId, 80);
+  const idempotencyKey = limitText(req.headers["idempotency-key"], 80);
+  const logicalSaleId = clientSaleId || idempotencyKey;
+  if (!logicalSaleId) {
+    return res.status(400).json({ message: "clientSaleId or Idempotency-Key is required" });
+  }
+
+  const existingSale = sales.find(
+    (sale) => sale.ownerKey === ownerKey(req) && sale.clientSaleId === logicalSaleId
+  );
+  if (existingSale) {
+    return res.status(200).json({ ...existingSale, duplicate: true });
+  }
+
+  const product = products.find((item) => item.id === Number(req.body.productId));
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
+
+  const quantity = parseQuantity(req.body.quantity);
+  if (!quantity) {
+    return res.status(400).json({ message: `Quantity must be an integer between 1 and ${maxCartQuantity}` });
+  }
+
+  const sale = {
+    id: sales.length + 9001,
+    saleNumber: `SALE-${9001 + sales.length}`,
+    clientSaleId: logicalSaleId,
+    ownerKey: ownerKey(req),
+    cashier: limitText(req.body.cashier, inputLimits.email) || req.user.email,
+    productId: product.id,
+    productName: product.name,
+    quantity,
+    total: product.price * quantity,
+    status: "SYNCED",
+    syncedAt: new Date().toISOString()
+  };
+
+  sales.push(sale);
+  res.location(`/api/sales/${sale.id}`).status(201).json(sale);
+});
+
+app.get("/api/sales", requireAuth, (req, res) => {
+  res.json({ items: sales.filter((sale) => sale.ownerKey === ownerKey(req)) });
 });
 
 app.get("/api/secure/orders/:id", requireAuth, requireScope("orders:read"), async (req, res) => {
