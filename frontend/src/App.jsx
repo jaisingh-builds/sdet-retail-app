@@ -191,6 +191,119 @@ const apiDocs = [
     ]
   },
   {
+    group: "Week 5 Resilience, Returns, Refunds",
+    description: "Endpoints used by Week 5 Day 4 offline POS and Day 5 refund money-flow labs.",
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/sales",
+        auth: "Bearer token",
+        purpose: "Sync a queued POS sale with an Idempotency-Key so reconnect retries do not double-post.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Idempotency-Key": "sale-2026-001",
+          "Content-Type": "application/json"
+        },
+        request: {
+          clientSaleId: "sale-2026-001",
+          productId: 101,
+          productName: "Running Shoes",
+          quantity: 1,
+          total: 4499,
+          cashier: "customer@example.com"
+        },
+        response: {
+          id: 9001,
+          saleNumber: "SALE-9001",
+          clientSaleId: "sale-2026-001",
+          status: "SYNCED",
+          total: 4499
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/refund-lab/orders",
+        auth: "Bearer token",
+        purpose: "Seed a refund lab order with paise-safe line totals and tax for Week 5 Day 5 tests.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Content-Type": "application/json"
+        },
+        request: {
+          taxPaise: 4995,
+          lines: [{ sku: "TEE", name: "Training Tee", unitPaise: 33300, qty: 3 }]
+        },
+        response: {
+          id: 7001,
+          orderNumber: "RET-7001",
+          totalPaise: 104895,
+          refundableBalancePaise: 104895,
+          status: "PAID"
+        }
+      },
+      {
+        method: "GET",
+        path: "/api/refund-lab/orders/{id}",
+        auth: "Bearer token",
+        purpose: "Read the refund ledger after full, partial, rejected, or idempotent refund attempts.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer"
+        },
+        request: null,
+        response: {
+          id: 7001,
+          orderNumber: "RET-7001",
+          status: "PARTIALLY_REFUNDED",
+          refundCount: 1,
+          refundableBalancePaise: 69930,
+          lastRefund: { refundId: 8001, amountPaise: 34965 }
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/refunds/check",
+        auth: "Bearer token",
+        purpose: "Check refund eligibility and return a stable verdict code without moving money.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Content-Type": "application/json"
+        },
+        request: {
+          orderId: 7001,
+          lines: [{ sku: "TEE", qty: 1 }]
+        },
+        response: {
+          orderId: 7001,
+          verdict: "APPROVED",
+          reason: null
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/refunds",
+        auth: "Bearer token + Idempotency-Key",
+        purpose: "Create a full or partial refund. Reusing the same Idempotency-Key replays the same refund.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Idempotency-Key": "refund-2026-001",
+          "Content-Type": "application/json"
+        },
+        request: {
+          orderId: 7001,
+          lines: [{ sku: "TEE", qty: 1 }]
+        },
+        response: {
+          refundId: 8001,
+          amountPaise: 34965,
+          lineAmountPaise: 33300,
+          taxPaise: 1665,
+          taxShares: [1665, 1665, 1665],
+          refundCount: 1
+        }
+      }
+    ]
+  },
+  {
     group: "API Authentication",
     description: "Week 2 Day 4 endpoints for OAuth-style bearer tokens, API keys, and negative auth tests.",
     endpoints: [

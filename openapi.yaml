@@ -349,6 +349,213 @@ paths:
           description: Invalid API key
         "404":
           description: Order not found
+  /api/sales:
+    get:
+      summary: List synced POS sales for the current user/session
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: POS sales list
+    post:
+      summary: Sync a queued POS sale idempotently
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+          description: Stable client sale id used to prevent duplicate sale effects.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientSaleId, productId, quantity]
+              properties:
+                clientSaleId:
+                  type: string
+                  example: sale-2026-001
+                productId:
+                  type: integer
+                  example: 101
+                productName:
+                  type: string
+                  example: Running Shoes
+                quantity:
+                  type: integer
+                  example: 1
+                total:
+                  type: integer
+                  description: Sale total in rupees for the POS offline lab UI.
+                  example: 4499
+                cashier:
+                  type: string
+                  example: customer@example.com
+      responses:
+        "201":
+          description: Sale synced
+        "200":
+          description: Duplicate idempotency key replayed the existing sale
+        "400":
+          description: Missing clientSaleId or invalid quantity
+        "404":
+          description: Product not found
+  /api/refund-lab/orders:
+    post:
+      summary: Seed a refund lab order for Week 5 Day 5
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Refund-Session
+          schema:
+            type: string
+          description: Optional classroom session key used to isolate refund lab data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                daysAgo:
+                  type: integer
+                  example: 5
+                taxPaise:
+                  type: integer
+                  example: 4995
+                paymentMethod:
+                  type: string
+                  example: Original card
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [sku, unitPaise, qty]
+                    properties:
+                      sku:
+                        type: string
+                        example: TEE
+                      name:
+                        type: string
+                        example: Training Tee
+                      unitPaise:
+                        type: integer
+                        example: 33300
+                      qty:
+                        type: integer
+                        example: 3
+                      finalSale:
+                        type: boolean
+                      nonReturnable:
+                        type: boolean
+      responses:
+        "201":
+          description: Refund lab order created
+  /api/refund-lab/orders/{id}:
+    get:
+      summary: Read a refund lab order and its ledger state
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: header
+          name: X-Refund-Session
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Refund lab order with refundCount, refundableBalancePaise, and lastRefund
+        "404":
+          description: Refund lab order not found
+  /api/refunds/check:
+    post:
+      summary: Check refund eligibility without moving money
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, lines]
+              properties:
+                orderId:
+                  type: integer
+                  example: 7001
+                lines:
+                  oneOf:
+                    - type: string
+                      enum: [ALL]
+                    - type: array
+                      items:
+                        type: object
+                        properties:
+                          sku:
+                            type: string
+                          qty:
+                            type: integer
+      responses:
+        "200":
+          description: Eligibility verdict such as APPROVED, OUT_OF_WINDOW, FINAL_SALE, NON_RETURNABLE, OVER_REFUND, or ALREADY_REFUNDED
+  /api/refunds:
+    post:
+      summary: Create a full or partial refund idempotently
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+          description: Stable refund key used to replay the same refund instead of double-paying.
+        - in: header
+          name: X-Refund-Session
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, lines]
+              properties:
+                orderId:
+                  type: integer
+                  example: 7001
+                lines:
+                  oneOf:
+                    - type: string
+                      enum: [ALL]
+                    - type: array
+                      items:
+                        type: object
+                        properties:
+                          sku:
+                            type: string
+                            example: TEE
+                          qty:
+                            type: integer
+                            example: 1
+      responses:
+        "201":
+          description: Refund created with amountPaise, lineAmountPaise, taxPaise, taxShares, refundCount, and refundableBalancePaise
+        "200":
+          description: Idempotency-Key replayed an existing refund
+        "404":
+          description: Refund lab order not found
+        "422":
+          description: Refund rejected with a stable reason code
 components:
   securitySchemes:
     bearerAuth:
