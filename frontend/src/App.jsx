@@ -38,6 +38,7 @@ const navItems = [
   { label: "A11y Lab", href: "/a11y-lab", status: "Day 4" },
   { label: "Debug", href: "/debug-lab", status: "Day 5" },
   { label: "POS", href: "/pos", status: "W5D4" },
+  { label: "Returns", href: "/returns", status: "W5D5" },
   { label: "Cart", href: "/cart", status: "Week 1" },
   { label: "Checkout", href: "/checkout", status: "Week 4" },
   { label: "Orders", href: "/orders", status: "Week 2" },
@@ -711,6 +712,13 @@ function formatPrice(amount) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
+function formatPaise(paise) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR"
+  }).format(Number(paise || 0) / 100);
+}
+
 function findProduct(slug) {
   return products.find((product) => product.slug === slug) || products[0];
 }
@@ -1057,6 +1065,8 @@ function App() {
           <DebugLabPage />
         ) : currentPath === "/pos" ? (
           <PosOfflineLabPage currentUser={apiUser} />
+        ) : currentPath === "/returns" ? (
+          <ReturnsRefundPage currentUser={apiUser} />
         ) : currentPath.startsWith("/product/") ? (
           <ProductPage
             product={findProduct(currentPath.replace("/product/", ""))}
@@ -3410,6 +3420,133 @@ function PosOfflineLabPage({ currentUser }) {
           </table>
         )}
       </section>
+    </section>
+  );
+}
+
+function ReturnsRefundPage({ currentUser }) {
+  const [order, setOrder] = useState(null);
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const orderId = new URLSearchParams(window.location.search).get("orderId");
+
+  const loadOrder = async () => {
+    if (!orderId) {
+      setStatus("empty");
+      return;
+    }
+
+    setStatus("loading");
+    setError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/refund-lab/orders/${orderId}`, {
+        headers: {
+          Authorization: `Bearer ${currentUser.token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Refund order API failed");
+      }
+
+      setOrder(await response.json());
+      setStatus("ready");
+    } catch {
+      setError("Refund order could not be loaded.");
+      setStatus("error");
+    }
+  };
+
+  useEffect(() => {
+    loadOrder();
+  }, [orderId, currentUser.token]);
+
+  const lastRefund = order?.lastRefund;
+
+  return (
+    <section className="returns-layout" aria-labelledby="returns-title">
+      <div className="hero-copy">
+        <p className="eyebrow">Week 5 Day 5 money lab</p>
+        <h1 id="returns-title">Returns & Refunds</h1>
+        <p className="lead">
+          Review refund eligibility, paise-safe calculations, prorated tax, ledger movement and
+          idempotent refund outcomes from the retail API.
+        </p>
+      </div>
+
+      <section className="panel" aria-labelledby="refund-ledger-title">
+        <h2 id="refund-ledger-title">Refund Ledger</h2>
+        {!orderId ? (
+          <p role="status">Create a refund lab order from the W5D5 Playwright setup, then open this page with an orderId.</p>
+        ) : null}
+        {status === "loading" ? <p className="spinner" role="status">Loading refund order...</p> : null}
+        {error ? <div className="alert" role="alert">{error}</div> : null}
+        {order ? (
+          <>
+            <dl className="summary-list">
+              <div>
+                <dt>Order</dt>
+                <dd data-testid="refund-order-number">{order.orderNumber}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd data-testid="refund-status">{order.status}</dd>
+              </div>
+              <div>
+                <dt>Order total</dt>
+                <dd data-testid="order-total-paise">{order.totalPaise}</dd>
+              </div>
+              <div>
+                <dt>Refund count</dt>
+                <dd data-testid="refund-count">{order.refundCount}</dd>
+              </div>
+              <div>
+                <dt>Refundable balance</dt>
+                <dd data-testid="refund-balance-paise">{order.refundableBalancePaise}</dd>
+              </div>
+            </dl>
+
+            <div className="refund-total-band">
+              <span>Latest refund</span>
+              <strong data-testid="refund-total">
+                {lastRefund ? formatPaise(lastRefund.amountPaise) : formatPaise(0)}
+              </strong>
+              <small data-testid="refund-total-paise">
+                {lastRefund ? `${lastRefund.amountPaise} paise` : "0 paise"}
+              </small>
+            </div>
+          </>
+        ) : null}
+      </section>
+
+      {order ? (
+        <section className="panel" aria-labelledby="refund-lines-title">
+          <h2 id="refund-lines-title">Returnable Lines</h2>
+          <table>
+            <caption>Refund line ledger</caption>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Unit</th>
+                <th>Purchased</th>
+                <th>Refunded</th>
+                <th>Rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.lines.map((line) => (
+                <tr key={line.sku} data-testid="refund-line">
+                  <td>{line.sku}</td>
+                  <td>{formatPaise(line.unitPaise)}</td>
+                  <td>{line.qty}</td>
+                  <td data-testid={`refunded-${line.sku}`}>{line.refundedQty}</td>
+                  <td>{line.finalSale ? "FINAL_SALE" : line.nonReturnable ? "NON_RETURNABLE" : "RETURNABLE"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
     </section>
   );
 }

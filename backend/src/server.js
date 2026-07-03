@@ -179,7 +179,11 @@ products = products.map((product) => ({ ...product, ...productSearchMetadata[pro
 let cart = [];
 let orders = [];
 let sales = [];
+let refundLabOrders = [];
+let refunds = [];
 let nextCartItemId = 1;
+let nextRefundOrderId = 7001;
+let nextRefundId = 8001;
 
 const secureOrders = [
   {
@@ -427,6 +431,161 @@ function productForCartItem(item) {
 
 function mapCartItem(item) {
   return { ...item, product: productForCartItem(item) };
+}
+
+function parsePositiveInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function refundOwnerKey(req) {
+  return req.headers["x-refund-session"] || `user-${req.user.id}`;
+}
+
+function formatRefundOrder(order) {
+  const orderRefunds = refunds.filter((refund) => refund.orderId === order.id && refund.ownerKey === order.ownerKey);
+  return {
+    ...order,
+    refunds: orderRefunds,
+    refundCount: orderRefunds.length,
+    lastRefund: orderRefunds.at(-1) || null,
+    status: order.refundableBalancePaise === 0 ? "REFUNDED" : orderRefunds.length > 0 ? "PARTIALLY_REFUNDED" : "PAID"
+  };
+}
+
+function createRefundLabOrder(req, source) {
+  const lines = (Array.isArray(source.lines) ? source.lines : []).map((line, index) => {
+    const quantity = parsePositiveInteger(line.qty ?? line.quantity) || 1;
+    const unitPaise = parsePositiveInteger(line.unitPaise) || 33300;
+    const sku = limitText(line.sku || `SKU-${index + 1}`, 32);
+    return {
+      sku,
+      name: limitText(line.name || sku, 80),
+      unitPaise,
+      qty: quantity,
+      refundedQty: 0,
+      finalSale: Boolean(line.finalSale),
+      nonReturnable: Boolean(line.nonReturnable)
+    };
+  });
+
+  const safeLines = lines.length > 0 ? lines : [{ sku: "TEE", name: "Training Tee", unitPaise: 33300, qty: 3, refundedQty: 0, finalSale: false, nonReturnable: false }];
+  const lineTotalPaise = safeLines.reduce((sum, line) => sum + line.unitPaise * line.qty, 0);
+  const taxPaise = Number.isInteger(Number(source.taxPaise)) ? Number(source.taxPaise) : Math.round(lineTotalPaise * 0.05);
+  const daysAgo = Number.isInteger(Number(source.daysAgo)) ? Number(source.daysAgo) : 5;
+  const order = {
+    id: nextRefundOrderId,
+    orderNumber: `RET-${nextRefundOrderId}`,
+    ownerKey: refundOwnerKey(req),
+    placedOn: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    daysAgo,
+    returnWindowDays: 30,
+    paymentMethod: limitText(source.paymentMethod || "Original card", inputLimits.cartOption),
+    lines: safeLines,
+    lineTotalPaise,
+    taxPaise,
+    totalPaise: lineTotalPaise + taxPaise,
+    refundableBalancePaise: lineTotalPaise + taxPaise
+  };
+  nextRefundOrderId += 1;
+  refundLabOrders.push(order);
+  return order;
+}
+
+function findRefundLabOrder(req, orderId) {
+  return refundLabOrders.find((order) => order.id === Number(orderId) && order.ownerKey === refundOwnerKey(req));
+}
+
+function expandReturnLines(order, requestedLines) {
+  if (requestedLines === "ALL") {
+    return order.lines
+      .map((line) => ({ sku: line.sku, qty: line.qty - line.refundedQty }))
+      .filter((line) => line.qty > 0);
+  }
+
+  if (!Array.isArray(requestedLines)) {
+    return [];
+  }
+
+  return requestedLines.map((line) => ({
+    sku: limitText(line.sku, 32),
+    qty: parsePositiveInteger(line.qty ?? line.quantity) || 0
+  }));
+}
+
+function prorateTaxShares(order) {
+  const unitWeights = order.lines.flatMap((line) => Array.from({ length: line.qty }, () => line.unitPaise));
+  const totalWeight = unitWeights.reduce((sum, weight) => sum + weight, 0);
+  const shares = unitWeights.map((weight) => Math.round((order.taxPaise * weight) / totalWeight));
+  const diff = order.taxPaise - shares.reduce((sum, share) => sum + share, 0);
+  if (shares.length > 0) {
+    shares[shares.length - 1] += diff;
+  }
+  return shares;
+}
+
+function refundEligibility(order, requestedLines) {
+  if (!order) {
+    return { verdict: "ORDER_NOT_FOUND", reason: "ORDER_NOT_FOUND", lines: [] };
+  }
+
+  const lines = expandReturnLines(order, requestedLines);
+  if (order.daysAgo > order.returnWindowDays) {
+    return { verdict: "OUT_OF_WINDOW", reason: "OUT_OF_WINDOW", lines };
+  }
+
+  for (const requested of lines) {
+    const orderLine = order.lines.find((line) => line.sku === requested.sku);
+    if (!orderLine) {
+      return { verdict: "UNKNOWN_SKU", reason: "UNKNOWN_SKU", lines };
+    }
+    if (orderLine.finalSale) {
+      return { verdict: "FINAL_SALE", reason: "FINAL_SALE", lines };
+    }
+    if (orderLine.nonReturnable) {
+      return { verdict: "NON_RETURNABLE", reason: "NON_RETURNABLE", lines };
+    }
+    if (requested.qty > orderLine.qty - orderLine.refundedQty) {
+      return {
+        verdict: orderLine.refundedQty >= orderLine.qty ? "ALREADY_REFUNDED" : "OVER_REFUND",
+        reason: orderLine.refundedQty >= orderLine.qty ? "ALREADY_REFUNDED" : "OVER_REFUND",
+        lines
+      };
+    }
+  }
+
+  if (lines.length === 0 || lines.every((line) => line.qty === 0)) {
+    return { verdict: "ZERO_QUANTITY", reason: "ZERO_QUANTITY", lines };
+  }
+
+  return { verdict: "APPROVED", reason: null, lines };
+}
+
+function calculateRefund(order, lines) {
+  const allTaxShares = prorateTaxShares(order);
+  let unitIndex = 0;
+  const taxBySku = new Map();
+  for (const line of order.lines) {
+    const unitShares = allTaxShares.slice(unitIndex, unitIndex + line.qty);
+    unitIndex += line.qty;
+    taxBySku.set(line.sku, unitShares);
+  }
+
+  let lineAmountPaise = 0;
+  let taxPaise = 0;
+  for (const requested of lines) {
+    const orderLine = order.lines.find((line) => line.sku === requested.sku);
+    lineAmountPaise += orderLine.unitPaise * requested.qty;
+    const unitShares = taxBySku.get(orderLine.sku) || [];
+    taxPaise += unitShares.slice(orderLine.refundedQty, orderLine.refundedQty + requested.qty).reduce((sum, share) => sum + share, 0);
+  }
+
+  return {
+    lineAmountPaise,
+    taxPaise,
+    amountPaise: lineAmountPaise + taxPaise,
+    taxShares: allTaxShares
+  };
 }
 
 app.get("/api/health", (_req, res) => {
@@ -768,6 +927,87 @@ app.post("/api/sales", requireAuth, (req, res) => {
 
 app.get("/api/sales", requireAuth, (req, res) => {
   res.json({ items: sales.filter((sale) => sale.ownerKey === ownerKey(req)) });
+});
+
+app.post("/api/refund-lab/orders", requireAuth, (req, res) => {
+  const order = createRefundLabOrder(req, req.body || {});
+  res.status(201).json(formatRefundOrder(order));
+});
+
+app.get("/api/refund-lab/orders/:id", requireAuth, (req, res) => {
+  const order = findRefundLabOrder(req, req.params.id);
+  if (!order) {
+    return res.status(404).json({ message: "Refund lab order not found" });
+  }
+  res.json(formatRefundOrder(order));
+});
+
+app.post("/api/refunds/check", requireAuth, (req, res) => {
+  const order = req.body.orderId
+    ? findRefundLabOrder(req, req.body.orderId)
+    : createRefundLabOrder(req, req.body.order || req.body || {});
+  const eligibility = refundEligibility(order, req.body.lines || "ALL");
+  res.json({
+    orderId: order?.id,
+    verdict: eligibility.verdict,
+    reason: eligibility.reason
+  });
+});
+
+app.post("/api/refunds", requireAuth, (req, res) => {
+  const idempotencyKey = limitText(req.headers["idempotency-key"], 120);
+  const order = findRefundLabOrder(req, req.body.orderId);
+  if (!order) {
+    return res.status(404).json({ message: "Refund lab order not found", reason: "ORDER_NOT_FOUND" });
+  }
+
+  if (idempotencyKey) {
+    const existingRefund = refunds.find(
+      (refund) => refund.ownerKey === refundOwnerKey(req) && refund.idempotencyKey === idempotencyKey
+    );
+    if (existingRefund) {
+      return res.status(200).json({ ...existingRefund, replayed: true });
+    }
+  }
+
+  const eligibility = refundEligibility(order, req.body.lines || "ALL");
+  if (eligibility.verdict !== "APPROVED") {
+    return res.status(422).json({
+      message: "Refund rejected",
+      reason: eligibility.reason,
+      verdict: eligibility.verdict
+    });
+  }
+
+  const calculation = calculateRefund(order, eligibility.lines);
+  const refund = {
+    refundId: nextRefundId,
+    orderId: order.id,
+    ownerKey: refundOwnerKey(req),
+    idempotencyKey,
+    amountPaise: calculation.amountPaise,
+    lineAmountPaise: calculation.lineAmountPaise,
+    taxPaise: calculation.taxPaise,
+    taxShares: calculation.taxShares,
+    paymentMethod: order.paymentMethod,
+    status: "REFUNDED",
+    createdAt: new Date().toISOString()
+  };
+  nextRefundId += 1;
+
+  for (const requested of eligibility.lines) {
+    const orderLine = order.lines.find((line) => line.sku === requested.sku);
+    orderLine.refundedQty += requested.qty;
+  }
+  order.refundableBalancePaise -= calculation.amountPaise;
+  refunds.push(refund);
+
+  res.location(`/api/refunds/${refund.refundId}`).status(201).json({
+    ...refund,
+    orderStatus: formatRefundOrder(order).status,
+    refundCount: refunds.filter((item) => item.orderId === order.id && item.ownerKey === order.ownerKey).length,
+    refundableBalancePaise: order.refundableBalancePaise
+  });
 });
 
 app.get("/api/secure/orders/:id", requireAuth, requireScope("orders:read"), async (req, res) => {

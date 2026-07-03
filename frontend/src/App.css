@@ -702,7 +702,15 @@ h2 {
   align-items: start;
 }
 
+.returns-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 28px;
+  align-items: start;
+}
+
 .pos-layout .hero-copy,
+.returns-layout .hero-copy,
 .pos-outbox {
   grid-column: 1 / -1;
 }
@@ -741,6 +749,28 @@ h2 {
   color: var(--success);
   padding: 10px 12px;
   font-weight: 900;
+}
+
+.refund-total-band {
+  display: grid;
+  gap: 6px;
+  margin-top: 20px;
+  border: 1px solid #b7d8d2;
+  border-radius: 8px;
+  background: #effaf7;
+  padding: 18px;
+}
+
+.refund-total-band span,
+.refund-total-band small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.refund-total-band strong {
+  color: var(--brand-dark);
+  font-size: 1.8rem;
+  line-height: 1.1;
 }
 
 .catalog-page,
@@ -1561,6 +1591,7 @@ tr:last-child td {
   .api-endpoint-list,
   .checkout-layout,
   .pos-layout,
+  .returns-layout,
   .admin-layout,
   .a11y-lab-layout,
   .debug-layout,
