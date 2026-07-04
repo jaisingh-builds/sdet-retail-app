@@ -425,6 +425,7 @@ paths:
                 daysAgo:
                   type: integer
                   example: 5
+                  description: Number of days since the order was placed. Values greater than 30 trigger OUT_OF_WINDOW in refund eligibility.
                 taxPaise:
                   type: integer
                   example: 4995
@@ -506,7 +507,63 @@ paths:
                             type: integer
       responses:
         "200":
-          description: Eligibility verdict such as APPROVED, OUT_OF_WINDOW, FINAL_SALE, NON_RETURNABLE, OVER_REFUND, or ALREADY_REFUNDED
+          description: Eligibility verdict without moving money
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: integer
+                    nullable: true
+                    example: 7001
+                  verdict:
+                    type: string
+                    enum:
+                      - APPROVED
+                      - OUT_OF_WINDOW
+                      - FINAL_SALE
+                      - NON_RETURNABLE
+                      - OVER_REFUND
+                      - ALREADY_REFUNDED
+                      - UNKNOWN_SKU
+                      - ZERO_QUANTITY
+                      - ORDER_NOT_FOUND
+                    example: OVER_REFUND
+                  reason:
+                    type: string
+                    nullable: true
+                    enum:
+                      - OUT_OF_WINDOW
+                      - FINAL_SALE
+                      - NON_RETURNABLE
+                      - OVER_REFUND
+                      - ALREADY_REFUNDED
+                      - UNKNOWN_SKU
+                      - ZERO_QUANTITY
+                      - ORDER_NOT_FOUND
+                    example: OVER_REFUND
+              examples:
+                approved:
+                  value:
+                    orderId: 7001
+                    verdict: APPROVED
+                    reason: null
+                overRefund:
+                  value:
+                    orderId: 7001
+                    verdict: OVER_REFUND
+                    reason: OVER_REFUND
+                outOfWindow:
+                  value:
+                    orderId: 7001
+                    verdict: OUT_OF_WINDOW
+                    reason: OUT_OF_WINDOW
+                unknownSku:
+                  value:
+                    orderId: 7001
+                    verdict: UNKNOWN_SKU
+                    reason: UNKNOWN_SKU
   /api/refunds:
     post:
       summary: Create a full or partial refund idempotently
@@ -554,8 +611,59 @@ paths:
           description: Idempotency-Key replayed an existing refund
         "404":
           description: Refund lab order not found
+          content:
+            application/json:
+              example:
+                message: Refund lab order not found
+                reason: ORDER_NOT_FOUND
         "422":
           description: Refund rejected with a stable reason code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Refund rejected
+                  verdict:
+                    type: string
+                    enum:
+                      - OUT_OF_WINDOW
+                      - FINAL_SALE
+                      - NON_RETURNABLE
+                      - OVER_REFUND
+                      - ALREADY_REFUNDED
+                      - UNKNOWN_SKU
+                      - ZERO_QUANTITY
+                    example: OVER_REFUND
+                  reason:
+                    type: string
+                    enum:
+                      - OUT_OF_WINDOW
+                      - FINAL_SALE
+                      - NON_RETURNABLE
+                      - OVER_REFUND
+                      - ALREADY_REFUNDED
+                      - UNKNOWN_SKU
+                      - ZERO_QUANTITY
+                    example: OVER_REFUND
+              examples:
+                overRefund:
+                  value:
+                    message: Refund rejected
+                    verdict: OVER_REFUND
+                    reason: OVER_REFUND
+                outOfWindow:
+                  value:
+                    message: Refund rejected
+                    verdict: OUT_OF_WINDOW
+                    reason: OUT_OF_WINDOW
+                alreadyRefunded:
+                  value:
+                    message: Refund rejected
+                    verdict: ALREADY_REFUNDED
+                    reason: ALREADY_REFUNDED
 components:
   securitySchemes:
     bearerAuth:

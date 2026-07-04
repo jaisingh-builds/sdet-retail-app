@@ -230,12 +230,15 @@ const apiDocs = [
           "Content-Type": "application/json"
         },
         request: {
+          daysAgo: 5,
           taxPaise: 4995,
           lines: [{ sku: "TEE", name: "Training Tee", unitPaise: 33300, qty: 3 }]
         },
         response: {
           id: 7001,
           orderNumber: "RET-7001",
+          daysAgo: 5,
+          returnWindowDays: 30,
           totalPaise: 104895,
           refundableBalancePaise: 104895,
           status: "PAID"
@@ -276,6 +279,59 @@ const apiDocs = [
           orderId: 7001,
           verdict: "APPROVED",
           reason: null
+        },
+        responseText: [
+          "Verdicts returned by this endpoint:",
+          "APPROVED - refund can proceed",
+          "OUT_OF_WINDOW - daysAgo is greater than returnWindowDays; the lab default is 30 days",
+          "FINAL_SALE - requested line is final sale",
+          "NON_RETURNABLE - requested line is marked non-returnable",
+          "OVER_REFUND - requested quantity is more than remaining refundable quantity",
+          "ALREADY_REFUNDED - requested line was already fully refunded",
+          "UNKNOWN_SKU - requested sku does not exist on the order",
+          "ZERO_QUANTITY - no valid return quantity was requested",
+          "ORDER_NOT_FOUND - orderId was not found for the current refund session"
+        ].join("\n")
+      },
+      {
+        method: "POST",
+        path: "/api/refunds/check",
+        auth: "Bearer token",
+        purpose: "Negative example: an order seeded with daysAgo greater than 30 returns OUT_OF_WINDOW without moving money.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Content-Type": "application/json"
+        },
+        request: {
+          order: {
+            daysAgo: 40,
+            lines: [{ sku: "TEE", unitPaise: 33300, qty: 3 }]
+          },
+          lines: [{ sku: "TEE", qty: 1 }]
+        },
+        response: {
+          orderId: 7002,
+          verdict: "OUT_OF_WINDOW",
+          reason: "OUT_OF_WINDOW"
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/refunds/check",
+        auth: "Bearer token",
+        purpose: "Negative example: quantity greater than the purchased quantity returns OVER_REFUND without moving money.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Content-Type": "application/json"
+        },
+        request: {
+          orderId: 7001,
+          lines: [{ sku: "TEE", qty: 4 }]
+        },
+        response: {
+          orderId: 7001,
+          verdict: "OVER_REFUND",
+          reason: "OVER_REFUND"
         }
       },
       {
@@ -300,6 +356,27 @@ const apiDocs = [
           taxShares: [1665, 1665, 1665],
           refundCount: 1
         }
+      },
+      {
+        method: "POST",
+        path: "/api/refunds",
+        auth: "Bearer token + Idempotency-Key",
+        purpose: "Negative example: rejected refund responses use HTTP 422 and the same stable reason codes as eligibility checks.",
+        headers: {
+          Authorization: "Bearer demo-token-1-customer",
+          "Idempotency-Key": "refund-2026-reject-001",
+          "Content-Type": "application/json"
+        },
+        request: {
+          orderId: 7001,
+          lines: [{ sku: "TEE", qty: 4 }]
+        },
+        response: {
+          message: "Refund rejected",
+          verdict: "OVER_REFUND",
+          reason: "OVER_REFUND"
+        },
+        responseText: "Other possible rejection reasons: OUT_OF_WINDOW, FINAL_SALE, NON_RETURNABLE, ALREADY_REFUNDED, UNKNOWN_SKU, ZERO_QUANTITY. Missing orders return 404 with ORDER_NOT_FOUND."
       }
     ]
   },
