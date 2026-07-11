@@ -1,5 +1,4 @@
-import mysql from "mysql2/promise";
-import { optional } from "./config.js";
+import { createDatabasePool, databaseDialect } from "./database-client.js";
 import { cartTotalPaise, lineTotalPaise } from "./pricing.js";
 
 export class DomainError extends Error {
@@ -8,19 +7,6 @@ export class DomainError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-function databaseOptions(databaseUrl) {
-  const parsed = new URL(databaseUrl);
-  return {
-    host: parsed.hostname,
-    port: Number(parsed.port || 3306),
-    user: decodeURIComponent(parsed.username),
-    password: decodeURIComponent(parsed.password),
-    database: parsed.pathname.replace(/^\//, ""),
-    connectionLimit: 8,
-    connectTimeout: Number(optional("DB_CONNECTION_TIMEOUT_MS") || 10000)
-  };
 }
 
 function mapProduct(row) {
@@ -46,12 +32,13 @@ function mapCartItem(row) {
 }
 
 export class ShopKartStore {
-  constructor(pool) {
+  constructor(pool, dialect) {
     this.pool = pool;
+    this.dialect = dialect;
   }
 
   static create(databaseUrl) {
-    return new ShopKartStore(mysql.createPool(databaseOptions(databaseUrl)));
+    return new ShopKartStore(createDatabasePool(databaseUrl), databaseDialect(databaseUrl));
   }
 
   async close() {
@@ -80,11 +67,11 @@ export class ShopKartStore {
   }
 
   async listProducts(query = "") {
-    const normalized = `%${String(query).trim()}%`;
+    const normalized = `%${String(query).trim().toLowerCase()}%`;
     const [rows] = await this.pool.execute(
       `SELECT sku, name, description, category, price_paise, stock, image_key
        FROM products
-       WHERE ? = '%%' OR name LIKE ? OR sku LIKE ? OR category LIKE ?
+       WHERE ? = '%%' OR LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(category) LIKE ?
        ORDER BY name`,
       [normalized, normalized, normalized, normalized]
     );
@@ -102,10 +89,11 @@ export class ShopKartStore {
 
   async createCart(customerId) {
     const [result] = await this.pool.execute(
-      "INSERT INTO carts (customer_id, status) VALUES (?, 'OPEN')",
+      `INSERT INTO carts (customer_id, status) VALUES (?, 'OPEN')${this.dialect === "postgresql" ? " RETURNING id" : ""}`,
       [customerId]
     );
-    return this.getCart(Number(result.insertId), customerId);
+    const cartId = this.dialect === "postgresql" ? Number(result[0].id) : Number(result.insertId);
+    return this.getCart(cartId, customerId);
   }
 
   async getCart(cartId, customerId) {
@@ -179,10 +167,16 @@ export class ShopKartStore {
         throw new DomainError(409, "OUT_OF_STOCK", `Only ${product.stock} unit(s) are available`);
       }
 
+      const upsert = this.dialect === "postgresql"
+        ? `INSERT INTO cart_items (cart_id, sku, qty, unit_price_paise)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT (cart_id, sku) DO UPDATE
+           SET qty = EXCLUDED.qty, unit_price_paise = EXCLUDED.unit_price_paise`
+        : `INSERT INTO cart_items (cart_id, sku, qty, unit_price_paise)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE qty = VALUES(qty), unit_price_paise = VALUES(unit_price_paise)`;
       await connection.execute(
-        `INSERT INTO cart_items (cart_id, sku, qty, unit_price_paise)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE qty = VALUES(qty), unit_price_paise = VALUES(unit_price_paise)`,
+        upsert,
         [cartId, sku, requestedTotal, product.price_paise]
       );
       await connection.commit();
@@ -233,10 +227,10 @@ export class ShopKartStore {
 
       const [orderResult] = await connection.execute(
         `INSERT INTO orders (customer_id, cart_id, status, total_paise, address)
-         VALUES (?, ?, 'PLACED', ?, ?)`,
+         VALUES (?, ?, 'PLACED', ?, ?)${this.dialect === "postgresql" ? " RETURNING id" : ""}`,
         [customerId, cartId, totalPaise, cleanAddress]
       );
-      const orderId = Number(orderResult.insertId);
+      const orderId = this.dialect === "postgresql" ? Number(orderResult[0].id) : Number(orderResult.insertId);
       for (const item of items) {
         await connection.execute(
           `INSERT INTO order_items (order_id, sku, name, qty, unit_price_paise, line_total_paise)
@@ -249,7 +243,7 @@ export class ShopKartStore {
       return this.getOrder(orderId, customerId);
     } catch (error) {
       await connection.rollback();
-      if (error?.code === "ER_DUP_ENTRY") {
+      if (error?.code === "ER_DUP_ENTRY" || error?.code === "23505") {
         throw new DomainError(409, "CART_ALREADY_ORDERED", "The cart has already been ordered");
       }
       throw error;
@@ -285,7 +279,7 @@ export class ShopKartStore {
       status: order.status,
       totalPaise: Number(order.total_paise),
       address: order.address,
-      createdAt: order.created_at.toISOString(),
+      createdAt: new Date(order.created_at).toISOString(),
       items: itemRows.map((item) => ({
         sku: item.sku,
         name: item.name,

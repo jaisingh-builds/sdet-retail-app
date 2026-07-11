@@ -4,10 +4,13 @@ import { fileURLToPath } from "node:url";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export const rootDir = path.resolve(currentDir, "../..");
+export const environmentFilePath = process.env.ENV_FILE
+  ? path.resolve(process.env.ENV_FILE)
+  : path.join(rootDir, ".env");
 
 const fileEnvironment = {};
 dotenv.config({
-  path: process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : path.join(rootDir, ".env"),
+  path: environmentFilePath,
   quiet: true,
   processEnv: fileEnvironment
 });
@@ -31,34 +34,52 @@ function hasCompleteDatabaseParts(environment) {
 }
 
 function databaseUrlFromParts(environment) {
+  const dialect = environment.DB_DIALECT?.trim().toLowerCase() || "mysql";
+  if (!["mysql", "postgres", "postgresql"].includes(dialect)) {
+    throw new Error("DB_DIALECT must be mysql or postgresql");
+  }
+  const protocol = dialect === "mysql" ? "mysql" : "postgresql";
   const host = environment.DB_HOST.trim();
-  const port = environment.DB_PORT?.trim() || "3306";
+  const port = environment.DB_PORT?.trim() || (protocol === "mysql" ? "3306" : "5432");
   const database = environment.DB_NAME.trim();
   const user = environment.DB_USER.trim();
   const password = environment.DB_PASSWORD.trim();
-  return `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+  return `${protocol}://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
+export function resolveDatabaseConfiguration() {
+  if (hasCompleteDatabaseParts(process.env)) {
+    return { databaseUrl: databaseUrlFromParts(process.env), source: "process/IDE DB_* values" };
+  }
+
+  const processDatabaseUrl = process.env.DATABASE_URL?.trim();
+  if (processDatabaseUrl) {
+    return { databaseUrl: processDatabaseUrl, source: "process/IDE DATABASE_URL" };
+  }
+
+  if (hasCompleteDatabaseParts(fileEnvironment)) {
+    return { databaseUrl: databaseUrlFromParts(fileEnvironment), source: `.env DB_* values (${environmentFilePath})` };
+  }
+
+  const fileDatabaseUrl = fileEnvironment.DATABASE_URL?.trim();
+  if (fileDatabaseUrl) {
+    return { databaseUrl: fileDatabaseUrl, source: `.env DATABASE_URL (${environmentFilePath})` };
+  }
+
+  throw new Error("Missing required database configuration: set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD");
 }
 
 export function resolveDatabaseUrl() {
-  if (hasCompleteDatabaseParts(process.env)) return databaseUrlFromParts(process.env);
-
-  const processDatabaseUrl = process.env.DATABASE_URL?.trim();
-  if (processDatabaseUrl) return processDatabaseUrl;
-
-  if (hasCompleteDatabaseParts(fileEnvironment)) return databaseUrlFromParts(fileEnvironment);
-
-  const fileDatabaseUrl = fileEnvironment.DATABASE_URL?.trim();
-  if (fileDatabaseUrl) return fileDatabaseUrl;
-
-  throw new Error("Missing required database configuration: set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD");
+  return resolveDatabaseConfiguration().databaseUrl;
 }
 
 export function databaseTarget(databaseUrl) {
   try {
     const parsed = new URL(databaseUrl);
-    return `${parsed.hostname}:${parsed.port || "3306"}/${parsed.pathname.replace(/^\//, "") || "<missing-db>"}`;
+    const defaultPort = parsed.protocol === "mysql:" ? "3306" : "5432";
+    return `${parsed.hostname}:${parsed.port || defaultPort}/${parsed.pathname.replace(/^\//, "") || "<missing-db>"}`;
   } catch {
-    return "<invalid MySQL target>";
+    return "<invalid database target>";
   }
 }
 
@@ -66,18 +87,21 @@ export function databaseFailureMessage(error, databaseUrl) {
   const code = error?.code || error?.cause?.code || "UNKNOWN";
   const target = databaseTarget(databaseUrl);
   if (["ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"].includes(code)) {
-    return `Cannot reach MySQL at ${target}. Confirm that MySQL is running and that DB_HOST/DB_PORT are correct. Driver code: ${code}.`;
+    return `Cannot reach the database at ${target}. Confirm that the selected database service is running and that DB_HOST/DB_PORT are correct. Driver code: ${code}.`;
   }
-  if (code === "ER_ACCESS_DENIED_ERROR") {
-    return `MySQL at ${target} rejected DB_USER or DB_PASSWORD. The configured target was loaded, but credentials were not accepted.`;
+  if (code === "ER_ACCESS_DENIED_ERROR" || code === "28P01") {
+    return `The database at ${target} rejected DB_USER or DB_PASSWORD. The configured target was loaded, but credentials were not accepted.`;
   }
   if (code === "ER_BAD_DB_ERROR") {
     return `MySQL is reachable, but database ${target} does not exist and the configured user could not create it. Create the database with an administrative account.`;
   }
-  if (["ER_DBACCESS_DENIED_ERROR", "ER_TABLEACCESS_DENIED_ERROR"].includes(code)) {
-    return `The configured MySQL user lacks permission for ${target}. Apply the grants from README.md.`;
+  if (code === "3D000") {
+    return `PostgreSQL is reachable, but database ${target} does not exist. Create it with an administrative account before running the migration.`;
   }
-  return `MySQL initialization failed for ${target}. Driver code: ${code}. ${error?.message || "Unknown database error"}`;
+  if (["ER_DBACCESS_DENIED_ERROR", "ER_TABLEACCESS_DENIED_ERROR", "42501"].includes(code)) {
+    return `The configured database user lacks permission for ${target}. Apply the grants from README.md.`;
+  }
+  return `Database initialization failed for ${target}. Driver code: ${code}. ${error?.message || "Unknown database error"}`;
 }
 
 export function loadConfig() {

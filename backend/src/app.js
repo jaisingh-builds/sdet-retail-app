@@ -66,7 +66,7 @@ export function createApp({ store, tokenSecret, apiDelayMs = 0 }) {
 
   app.get("/api/health", asyncRoute(async (_req, res) => {
     await store.ping();
-    res.json({ status: "UP", service: "shopkart", database: "mysql" });
+    res.json({ status: "UP", service: "shopkart", database: store.dialect });
   }));
 
   app.post("/api/auth/login", asyncRoute(async (req, res) => {

@@ -67,7 +67,7 @@ The expected count is exactly `1`. Tests must not update application rows direct
 
 ## Isolation and Reset
 
-- Local development uses the participant's dedicated `shopkart` MySQL database.
+- Local development uses the participant's dedicated `shopkart` MySQL or PostgreSQL database.
 - `npm run db:reset` removes carts and orders while preserving public reference data.
-- CI uses a new MySQL Testcontainer and applies both migrations before the test flow.
+- CI uses new MySQL and PostgreSQL Testcontainers and applies the matching migrations before each test flow.
 - Tests must build their own cart/order data and must not assume reusable order IDs.

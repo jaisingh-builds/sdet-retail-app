@@ -38,7 +38,7 @@ jobs:
       - name: Unit tests and production build
         run: npm test
 
-      - name: Full API and MySQL Testcontainers proof
+      - name: Full MySQL and PostgreSQL Testcontainers proof
         run: npm run test:ci
 
       - name: Gitleaks repository and history scan

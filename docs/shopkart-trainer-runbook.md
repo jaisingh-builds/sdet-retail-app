@@ -5,8 +5,8 @@
 1. Run `npm run install:all`.
 2. Run `npm test`.
 3. Run `npm run test:ci` while Docker is available on the trainer machine.
-4. Start the app against local MySQL and run `npm run smoke`.
-5. Open `/api-docs` and confirm all eight assessment endpoints render.
+4. Start the app against the selected SQL engine and run `npm run smoke`.
+5. Open `/api-docs` and confirm all ten API operations render.
 6. Complete the UI flow from login to `/orders/{id}`.
 7. Confirm `.env` is ignored and no populated credential file is tracked.
 8. Confirm the Gitleaks step scans full history and passes with only the documented legacy baseline.
@@ -41,7 +41,7 @@ npm run db:reset
 
 ## Evidence Checks
 
-- Health reports MySQL.
+- Health reports the selected `mysql` or `postgresql` engine.
 - Search for `bag` returns `SKU-BAG`.
 - Two bags total `99800` paise.
 - Alice can read her order.
@@ -54,9 +54,10 @@ npm run db:reset
 
 | Symptom | Check |
 | --- | --- |
-| Database connection refused | MySQL service, `DB_HOST`, `DB_PORT` |
+| Database connection refused | Database service, `DB_DIALECT`, `DB_HOST`, `DB_PORT` |
 | Access denied | `DB_USER`, `DB_PASSWORD`, grants |
 | Project configuration appears ignored | Process/IntelliJ values override `.env`; within either source, a complete `DB_*` set overrides `DATABASE_URL` |
+| Migration succeeds but tables look absent | Run `npm run db:migrate`; compare `Requested target` with the database UI connection and use the exact printed `mysql` or `psql` command |
 | Unknown database | Run `npm run db:migrate`; verify create permission |
 | Login always `401` | Run migration again after setting persona passwords |
 | UI opens but API fails | ShopKart must be started through the backend on port 8080 |

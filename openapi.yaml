@@ -15,7 +15,7 @@ paths:
   /health:
     get:
       tags: [Health]
-      summary: Verify the API and MySQL connection
+      summary: Verify the API and configured SQL database connection
       responses:
         "200":
           description: Service is ready
@@ -258,7 +258,7 @@ components:
       properties:
         status: { type: string, example: UP }
         service: { type: string, example: shopkart }
-        database: { type: string, example: mysql }
+        database: { type: string, enum: [mysql, postgresql], example: mysql }
     LoginRequest:
       type: object
       required: [email, password]

@@ -30,7 +30,8 @@ async function login(email, password) {
 
 const health = await request("/health");
 assert.equal(health.response.status, 200);
-console.log("PASS health and MySQL readiness");
+assert.ok(["mysql", "postgresql"].includes(health.payload.database));
+console.log(`PASS health and ${health.payload.database} readiness`);
 
 const aliceToken = await login("alice@shopkart.test", alicePassword);
 const bobToken = await login("bob@shopkart.test", bobPassword);

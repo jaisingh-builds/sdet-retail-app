@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { MySqlContainer } from "@testcontainers/mysql";
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import pg from "pg";
+
+const { Client: PostgresClient } = pg;
 
 async function jsonRequest(baseUrl, path, { method = "GET", token, body } = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -236,4 +240,95 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   await migrateDatabase({ databaseUrl: mysql.getConnectionUri(), reset: true });
   const rowsAfterReset = await mysql.executeQuery("SELECT COUNT(*) AS order_count FROM shopkart.orders");
   assert.match(rowsAfterReset, /order_count\s+0/);
+});
+
+test("ShopKart runs the checkout lifecycle on PostgreSQL", async (t) => {
+  const alicePassword = crypto.randomBytes(18).toString("base64url");
+  const databasePassword = `${crypto.randomBytes(12).toString("hex")}@:${crypto.randomBytes(6).toString("hex")}`;
+  const postgres = await new PostgreSqlContainer("postgres:16-alpine")
+    .withDatabase("shopkart")
+    .withUsername("shopkart_user")
+    .withPassword(databasePassword)
+    .start();
+  let runtime;
+  let database;
+  t.after(async () => {
+    if (database) await database.end();
+    if (runtime) await runtime.close();
+    await postgres.stop();
+  });
+  assert.match(postgres.getConnectionUri(), /%40%3A/);
+
+  process.env.NODE_ENV = "test";
+  process.env.DATABASE_URL = postgres.getConnectionUri();
+  process.env.SHOPKART_TOKEN_SECRET = crypto.randomBytes(32).toString("hex");
+  process.env.SHOPKART_ALICE_PASSWORD = alicePassword;
+  process.env.SHOPKART_BOB_PASSWORD = crypto.randomBytes(18).toString("base64url");
+  process.env.SHOPKART_CAROL_PASSWORD = crypto.randomBytes(18).toString("base64url");
+
+  const [{ startServer }, { migrateDatabase }] = await Promise.all([
+    import("../../src/server.js"),
+    import("../../src/migrate.js")
+  ]);
+  runtime = await startServer({ port: 0, databaseUrl: postgres.getConnectionUri() });
+  const baseUrl = `http://127.0.0.1:${runtime.port}`;
+
+  const health = await jsonRequest(baseUrl, "/api/health");
+  assert.equal(health.response.status, 200);
+  assert.equal(health.payload.database, "postgresql");
+
+  const productSearch = await jsonRequest(baseUrl, "/api/products?q=bag");
+  assert.equal(productSearch.response.status, 200);
+  assert.deepEqual(productSearch.payload.map((product) => product.sku), ["SKU-BAG"]);
+
+  const login = await jsonRequest(baseUrl, "/api/auth/login", {
+    method: "POST",
+    body: { email: "alice@shopkart.test", password: alicePassword }
+  });
+  assert.equal(login.response.status, 200);
+
+  const cart = await jsonRequest(baseUrl, "/api/carts", {
+    method: "POST",
+    token: login.payload.token
+  });
+  assert.equal(cart.response.status, 201);
+
+  const updatedCart = await jsonRequest(baseUrl, `/api/carts/${cart.payload.cartId}/items`, {
+    method: "POST",
+    token: login.payload.token,
+    body: { sku: "SKU-BAG", qty: 2 }
+  });
+  assert.equal(updatedCart.response.status, 200);
+  assert.equal(updatedCart.payload.totalPaise, 99800);
+
+  const order = await jsonRequest(baseUrl, "/api/orders", {
+    method: "POST",
+    token: login.payload.token,
+    body: { cartId: cart.payload.cartId, address: "UST Campus, Technopark, Trivandrum" }
+  });
+  assert.equal(order.response.status, 201);
+  assert.equal(order.payload.status, "PLACED");
+  assert.equal(order.payload.orderId, 7001);
+
+  const duplicate = await jsonRequest(baseUrl, "/api/orders", {
+    method: "POST",
+    token: login.payload.token,
+    body: { cartId: cart.payload.cartId, address: "UST Campus, Technopark, Trivandrum" }
+  });
+  assert.equal(duplicate.response.status, 409);
+  assert.equal(duplicate.payload.error.code, "CART_ALREADY_ORDERED");
+
+  const cancelled = await jsonRequest(baseUrl, `/api/orders/${order.payload.orderId}/cancel`, {
+    method: "POST",
+    token: login.payload.token
+  });
+  assert.equal(cancelled.response.status, 200);
+  assert.equal(cancelled.payload.status, "CANCELLED");
+
+  database = new PostgresClient({ connectionString: postgres.getConnectionUri() });
+  await database.connect();
+  assert.equal(Number((await database.query("SELECT COUNT(*) AS count FROM orders")).rows[0].count), 1);
+
+  await migrateDatabase({ databaseUrl: postgres.getConnectionUri(), reset: true });
+  assert.equal(Number((await database.query("SELECT COUNT(*) AS count FROM orders")).rows[0].count), 0);
 });

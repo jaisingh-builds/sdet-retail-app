@@ -80,3 +80,25 @@ test("explicit DATABASE_URL is not overridden by DB values loaded from .env", ()
     else process.env[key] = value;
   }
 });
+
+test("separate PostgreSQL values produce an encoded PostgreSQL URL", () => {
+  const keys = ["DATABASE_URL", "DB_DIALECT", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  delete process.env.DATABASE_URL;
+  process.env.DB_DIALECT = "postgresql";
+  process.env.DB_HOST = "localhost";
+  process.env.DB_PORT = "5432";
+  process.env.DB_NAME = "shopkart";
+  process.env.DB_USER = "shopkart_user";
+  process.env.DB_PASSWORD = "Postgres@123:Test";
+
+  assert.equal(
+    resolveDatabaseUrl(),
+    "postgresql://shopkart_user:Postgres%40123%3ATest@localhost:5432/shopkart"
+  );
+
+  for (const [key, value] of Object.entries(previous)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+});

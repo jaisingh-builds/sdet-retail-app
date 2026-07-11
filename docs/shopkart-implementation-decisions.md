@@ -5,8 +5,8 @@ These decisions adapt the supplied pre-capstone brief to the UST participant env
 | Brief area | Cohort implementation |
 | --- | --- |
 | Application delivery | Source is supplied on the `shopkart` branch and runs through Node.js on port 8080 |
-| Participant database | Local MySQL 8.x using separate `DB_*` environment values |
-| CI isolation | MySQL 8.4 Testcontainer created by the GitHub-hosted runner |
+| Participant database | Local MySQL 8.x by default; PostgreSQL 14+ is also supported through `DB_DIALECT` |
+| CI isolation | MySQL 8.4 and PostgreSQL 16 Testcontainers created by the GitHub-hosted runner |
 | Participant Docker requirement | None |
 | Database migrations | Versioned `V1__schema.sql` and `V2__seed.sql`; applied by the included migration runner |
 | Automation Java | JDK 21 recommended; another project-compatible JDK may be used after build verification |
