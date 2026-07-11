@@ -26,7 +26,7 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   const carolPassword = crypto.randomBytes(18).toString("base64url");
   const databasePassword = `${crypto.randomBytes(12).toString("hex")}@:${crypto.randomBytes(6).toString("hex")}`;
   const mysql = await new MySqlContainer("mysql:8.4")
-    .withDatabase("shopkart")
+    .withDatabase("participant_retail")
     .withUsername("shopkart_user")
     .withUserPassword(databasePassword)
     .withRootPassword(crypto.randomBytes(18).toString("base64url"))
@@ -52,6 +52,8 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   const health = await jsonRequest(baseUrl, "/api/health");
   assert.equal(health.response.status, 200);
   assert.equal(health.payload.database, "mysql");
+  assert.match(health.payload.databaseTarget, /\/participant_retail$/);
+  assert.ok(Number.isInteger(health.payload.processId));
 
   const productSearch = await jsonRequest(baseUrl, "/api/products?q=bag");
   assert.equal(productSearch.response.status, 200);
@@ -155,7 +157,7 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   assert.equal(duplicateCheckout.payload.error.code, "CART_ALREADY_ORDERED");
 
   const rowCount = await mysql.executeQuery(
-    `SELECT COUNT(*) AS placed_count FROM shopkart.orders WHERE id = ${orderId} AND status = 'PLACED'`
+    `SELECT COUNT(*) AS placed_count FROM ${mysql.getDatabase()}.orders WHERE id = ${orderId} AND status = 'PLACED'`
   );
   assert.match(rowCount, /placed_count\s+1/);
 
@@ -233,12 +235,14 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
     [201, 409]
   );
   const concurrentOrderCount = await mysql.executeQuery(
-    `SELECT COUNT(*) AS order_count FROM shopkart.orders WHERE cart_id = ${concurrentCart.payload.cartId}`
+    `SELECT COUNT(*) AS order_count FROM ${mysql.getDatabase()}.orders WHERE cart_id = ${concurrentCart.payload.cartId}`
   );
   assert.match(concurrentOrderCount, /order_count\s+1/);
 
   await migrateDatabase({ databaseUrl: mysql.getConnectionUri(), reset: true });
-  const rowsAfterReset = await mysql.executeQuery("SELECT COUNT(*) AS order_count FROM shopkart.orders");
+  const rowsAfterReset = await mysql.executeQuery(
+    `SELECT COUNT(*) AS order_count FROM ${mysql.getDatabase()}.orders`
+  );
   assert.match(rowsAfterReset, /order_count\s+0/);
 });
 
@@ -246,7 +250,7 @@ test("ShopKart runs the checkout lifecycle on PostgreSQL", async (t) => {
   const alicePassword = crypto.randomBytes(18).toString("base64url");
   const databasePassword = `${crypto.randomBytes(12).toString("hex")}@:${crypto.randomBytes(6).toString("hex")}`;
   const postgres = await new PostgreSqlContainer("postgres:16-alpine")
-    .withDatabase("shopkart")
+    .withDatabase("participant_retail")
     .withUsername("shopkart_user")
     .withPassword(databasePassword)
     .start();
@@ -276,6 +280,8 @@ test("ShopKart runs the checkout lifecycle on PostgreSQL", async (t) => {
   const health = await jsonRequest(baseUrl, "/api/health");
   assert.equal(health.response.status, 200);
   assert.equal(health.payload.database, "postgresql");
+  assert.match(health.payload.databaseTarget, /\/participant_retail$/);
+  assert.ok(Number.isInteger(health.payload.processId));
 
   const productSearch = await jsonRequest(baseUrl, "/api/products?q=bag");
   assert.equal(productSearch.response.status, 200);

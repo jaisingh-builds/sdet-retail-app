@@ -27,7 +27,7 @@ function positiveInteger(value, fieldName) {
   return result;
 }
 
-export function createApp({ store, tokenSecret, apiDelayMs = 0 }) {
+export function createApp({ store, tokenSecret, apiDelayMs = 0, databaseTarget, processId = process.pid }) {
   const app = express();
   app.disable("x-powered-by");
   app.use(cors());
@@ -66,7 +66,13 @@ export function createApp({ store, tokenSecret, apiDelayMs = 0 }) {
 
   app.get("/api/health", asyncRoute(async (_req, res) => {
     await store.ping();
-    res.json({ status: "UP", service: "shopkart", database: store.dialect });
+    res.json({
+      status: "UP",
+      service: "shopkart",
+      database: store.dialect,
+      databaseTarget,
+      processId
+    });
   }));
 
   app.post("/api/auth/login", asyncRoute(async (req, res) => {

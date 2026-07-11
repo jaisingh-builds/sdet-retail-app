@@ -85,7 +85,7 @@ export function createDatabasePool(databaseUrl) {
     port: Number(parsed.port || 3306),
     user: decodeURIComponent(parsed.username),
     password: decodeURIComponent(parsed.password),
-    database: parsed.pathname.replace(/^\//, ""),
+    database: decodeURIComponent(parsed.pathname.replace(/^\//, "")),
     connectionLimit: 8,
     connectTimeout: Number(optional("DB_CONNECTION_TIMEOUT_MS") || 10000)
   });

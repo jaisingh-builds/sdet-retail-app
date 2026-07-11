@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -44,7 +45,7 @@ function databaseUrlFromParts(environment) {
   const database = environment.DB_NAME.trim();
   const user = environment.DB_USER.trim();
   const password = environment.DB_PASSWORD.trim();
-  return `${protocol}://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+  return `${protocol}://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}`;
 }
 
 export function resolveDatabaseConfiguration() {
@@ -69,6 +70,34 @@ export function resolveDatabaseConfiguration() {
   throw new Error("Missing required database configuration: set DATABASE_URL or all of DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD");
 }
 
+export function databaseEnvironmentDiagnostics() {
+  const names = ["DB_DIALECT", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"];
+  const visibleValues = (environment) => Object.fromEntries(
+    names
+      .filter((name) => environment[name] !== undefined)
+      .map((name) => [name, name === "DB_PASSWORD" ? "<set; hidden>" : environment[name]])
+  );
+  const visibleUrl = (value) => {
+    if (!value) return "absent";
+    try {
+      const parsed = new URL(value);
+      const database = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
+      const user = decodeURIComponent(parsed.username);
+      return `${parsed.protocol}//${user || "<no-user>"}:<password-hidden>@${parsed.host}/${database}`;
+    } catch {
+      return "present but invalid; hidden";
+    }
+  };
+  return {
+    environmentFilePath,
+    environmentFileExists: existsSync(environmentFilePath),
+    processValues: visibleValues(process.env),
+    processDatabaseUrl: visibleUrl(process.env.DATABASE_URL),
+    fileValues: visibleValues(fileEnvironment),
+    fileDatabaseUrl: visibleUrl(fileEnvironment.DATABASE_URL)
+  };
+}
+
 export function resolveDatabaseUrl() {
   return resolveDatabaseConfiguration().databaseUrl;
 }
@@ -77,7 +106,8 @@ export function databaseTarget(databaseUrl) {
   try {
     const parsed = new URL(databaseUrl);
     const defaultPort = parsed.protocol === "mysql:" ? "3306" : "5432";
-    return `${parsed.hostname}:${parsed.port || defaultPort}/${parsed.pathname.replace(/^\//, "") || "<missing-db>"}`;
+    const database = decodeURIComponent(parsed.pathname.replace(/^\//, "")) || "<missing-db>";
+    return `${parsed.hostname}:${parsed.port || defaultPort}/${database}`;
   } catch {
     return "<invalid database target>";
   }
@@ -110,9 +140,11 @@ export function loadConfig() {
     throw new Error("SHOPKART_TOKEN_SECRET must contain at least 32 characters");
   }
 
+  const databaseConfiguration = resolveDatabaseConfiguration();
   return {
     port: Number(optional("PORT") || 8080),
-    databaseUrl: resolveDatabaseUrl(),
+    databaseUrl: databaseConfiguration.databaseUrl,
+    databaseSource: databaseConfiguration.source,
     tokenSecret,
     apiDelayMs: Math.max(0, Number(optional("SHOPKART_API_DELAY_MS") || 0))
   };

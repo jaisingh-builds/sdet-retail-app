@@ -254,11 +254,13 @@ components:
   schemas:
     Health:
       type: object
-      required: [status, service, database]
+      required: [status, service, database, databaseTarget, processId]
       properties:
         status: { type: string, example: UP }
         service: { type: string, example: shopkart }
         database: { type: string, enum: [mysql, postgresql], example: mysql }
+        databaseTarget: { type: string, example: "localhost:3306/shopkart" }
+        processId: { type: integer, example: 12345 }
     LoginRequest:
       type: object
       required: [email, password]

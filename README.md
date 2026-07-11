@@ -55,6 +55,10 @@ ALTER USER shopkart_user WITH PASSWORD '<your-local-password>';
 ALTER DATABASE shopkart OWNER TO shopkart_user;
 ```
 
+`shopkart` is only the recommended example name. Participants may use any
+database name supported by their database engine; create that database and set
+the same value in `DB_NAME`.
+
 ### 3. Create the ignored environment file
 
 Git Bash/macOS/Linux:
@@ -176,6 +180,42 @@ a different host/port or schema. Update that connection from `Requested target`,
 reconnect, and refresh the `shopkart` schema. A successful migration verifies
 seven tables, three customers and eight products; it now fails instead of
 reporting success when that database state is incomplete.
+
+### If the resolved database differs from the intended one
+
+The diagnostic distinguishes process/IDE variables from the project `.env`.
+Process variables have higher priority, so a Windows or IDE value such as
+`DB_NAME=sdet_retail` overrides a different value in `.env`. The name itself is
+valid; the issue exists only when it is not the database the participant meant
+to use.
+
+PowerShell inspection:
+
+```powershell
+Get-ChildItem Env: | Where-Object Name -Match '^(DB_|DATABASE_URL$)'
+```
+
+Git Bash inspection:
+
+```bash
+env | grep -E '^(DB_|DATABASE_URL=)'
+```
+
+Remove stale values from the terminal session, remove the same entries from the
+IDE run configuration, restart the terminal/IDE, and rerun `npm run db:migrate`.
+The `Configuration source` should name the intended source and `Requested
+target` should end with the exact `DB_NAME` selected by the participant.
+
+Check the database used by the already-running application separately:
+
+```bash
+curl http://localhost:8080/api/health
+```
+
+The response includes `databaseTarget` and `processId`. If its target differs
+from the migration target, stop that process and run `npm start` again. On
+Windows, use `taskkill /PID <processId> /F`. ShopKart now refuses to start with a
+clear error when an older process is still occupying port 8080.
 
 ## Seeded Public Data
 

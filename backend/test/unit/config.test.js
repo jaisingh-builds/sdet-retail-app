@@ -15,13 +15,13 @@ test("separate MySQL password supports @ and : without malformed URL parsing", (
   delete process.env.DATABASE_URL;
   process.env.DB_HOST = "localhost";
   process.env.DB_PORT = "3306";
-  process.env.DB_NAME = "shopkart";
+  process.env.DB_NAME = "participant-retail";
   process.env.DB_USER = "shopkart_user";
   process.env.DB_PASSWORD = "Training@123:Test";
 
   assert.equal(
     resolveDatabaseUrl(),
-    "mysql://shopkart_user:Training%40123%3ATest@localhost:3306/shopkart"
+    "mysql://shopkart_user:Training%40123%3ATest@localhost:3306/participant-retail"
   );
 
   for (const [key, value] of Object.entries(previous)) {
@@ -45,13 +45,13 @@ test("complete DB_* project configuration takes precedence over a stale DATABASE
   process.env.DATABASE_URL = "mysql://old:old@legacy.example:3306/legacy";
   process.env.DB_HOST = "current.example";
   process.env.DB_PORT = "3307";
-  process.env.DB_NAME = "shopkart";
+  process.env.DB_NAME = "participant-retail";
   process.env.DB_USER = "shopkart_user";
   process.env.DB_PASSWORD = "Current@123";
 
   assert.equal(
     resolveDatabaseUrl(),
-    "mysql://shopkart_user:Current%40123@current.example:3307/shopkart"
+    "mysql://shopkart_user:Current%40123@current.example:3307/participant-retail"
   );
 
   for (const [key, value] of Object.entries(previous)) {
@@ -88,13 +88,13 @@ test("separate PostgreSQL values produce an encoded PostgreSQL URL", () => {
   process.env.DB_DIALECT = "postgresql";
   process.env.DB_HOST = "localhost";
   process.env.DB_PORT = "5432";
-  process.env.DB_NAME = "shopkart";
+  process.env.DB_NAME = "participant-retail";
   process.env.DB_USER = "shopkart_user";
   process.env.DB_PASSWORD = "Postgres@123:Test";
 
   assert.equal(
     resolveDatabaseUrl(),
-    "postgresql://shopkart_user:Postgres%40123%3ATest@localhost:5432/shopkart"
+    "postgresql://shopkart_user:Postgres%40123%3ATest@localhost:5432/participant-retail"
   );
 
   for (const [key, value] of Object.entries(previous)) {

@@ -5,6 +5,7 @@ import mysql from "mysql2/promise";
 import pg from "pg";
 import {
   databaseFailureMessage,
+  databaseEnvironmentDiagnostics,
   optional,
   resolveDatabaseConfiguration,
   resolveDatabaseUrl,
@@ -34,9 +35,9 @@ function parseDatabaseUrl(databaseUrl) {
     throw new Error("DATABASE_URL must start with mysql://, postgres://, or postgresql://");
   }
 
-  const database = parsed.pathname.replace(/^\//, "");
-  if (!/^[A-Za-z0-9_]+$/.test(database)) {
-    throw new Error("DATABASE_URL must contain a simple database name");
+  const database = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
+  if (!database || database.includes("\0")) {
+    throw new Error("DATABASE_URL must contain a database name");
   }
 
   return {
@@ -69,7 +70,8 @@ async function ensureDatabase(connectionOptions) {
     password: connectionOptions.password,
     connectTimeout: Number(optional("DB_CONNECTION_TIMEOUT_MS") || 10000)
   });
-  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${connectionOptions.database}\``);
+  const escapedDatabase = connectionOptions.database.replace(/`/g, "``");
+  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${escapedDatabase}\``);
   await connection.end();
 }
 
@@ -108,8 +110,15 @@ async function readDatabaseDiagnostics(connection) {
 
 function printDatabaseDiagnostics({ configurationSource, options, diagnostics }) {
   const { server, tables, migrations, customers, products } = diagnostics;
+  const environment = databaseEnvironmentDiagnostics();
   console.log("\nShopKart migration verification");
   console.log(`  Configuration source : ${configurationSource}`);
+  console.log(`  Environment file     : ${environment.environmentFilePath}`);
+  console.log(`  Environment file exists: ${environment.environmentFileExists}`);
+  console.log(`  Process DB values    : ${JSON.stringify(environment.processValues)}`);
+  console.log(`  Process DATABASE_URL : ${environment.processDatabaseUrl}`);
+  console.log(`  .env DB values       : ${JSON.stringify(environment.fileValues)}`);
+  console.log(`  .env DATABASE_URL    : ${environment.fileDatabaseUrl}`);
   console.log(`  Requested target     : ${options.host}:${options.port}/${options.database}`);
   console.log(`  Connected server     : ${server.serverHostname}:${server.serverPort}`);
   console.log(`  Selected database    : ${server.selectedDatabase}`);

@@ -57,6 +57,8 @@ npm run db:reset
 | Database connection refused | Database service, `DB_DIALECT`, `DB_HOST`, `DB_PORT` |
 | Access denied | `DB_USER`, `DB_PASSWORD`, grants |
 | Project configuration appears ignored | Process/IntelliJ values override `.env`; within either source, a complete `DB_*` set overrides `DATABASE_URL` |
+| Database differs from the intended `DB_NAME` | Compare the printed process and `.env` values, correct the selected source, then compare `/api/health.databaseTarget` with `Requested target` |
+| Checkout uses the wrong database | Stop the process ID reported by `/api/health`, confirm port 8080 is free, and restart ShopKart from the project root |
 | Migration succeeds but tables look absent | Run `npm run db:migrate`; compare `Requested target` with the database UI connection and use the exact printed `mysql` or `psql` command |
 | Unknown database | Run `npm run db:migrate`; verify create permission |
 | Login always `401` | Run migration again after setting persona passwords |
