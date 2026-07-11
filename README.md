@@ -65,6 +65,10 @@ Set these local-only values in `.env`:
 
 The passwords may contain `@`, `#`, `:` and other special characters because they are separate environment values. Do not insert them into a connection URL. Do not share the populated file.
 
+When both forms are present, a complete `DB_HOST`, `DB_PORT`, `DB_NAME`,
+`DB_USER`, `DB_PASSWORD` set takes precedence over `DATABASE_URL`. This lets
+IntelliJ or shell configuration override a stale ignored `.env` safely.
+
 Verify that Git ignores it:
 
 ```bash
@@ -157,6 +161,10 @@ The environment-specific changes from the original brief are recorded in
 | `npm run test:ci` | Run the full API flow with a MySQL Testcontainer |
 | `npm run smoke` | Verify a running ShopKart instance without printing secrets |
 
+CI also runs Gitleaks against the complete Git history. The repository baselines
+five inactive fingerprints inherited from the older retail-demo history; every
+new finding fails the workflow.
+
 ## Repository Layout
 
 ```text
@@ -171,7 +179,7 @@ openapi.yaml                Swagger/OpenAPI contract
 
 ## Secret Handling Rules
 
-- Never commit `.env` or `secrets.local.properties`.
+- Never commit `.env`, `.env.local`, another populated `.env.*` file, or `secrets.local.properties`.
 - Never place a password in a feature file, page object, API client, test-data builder or report attachment.
 - Do not print bearer tokens or authorization headers.
 - Use a persona name in scenarios, then resolve its password at runtime.

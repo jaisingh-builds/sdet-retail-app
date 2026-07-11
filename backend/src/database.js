@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { optional } from "./config.js";
 import { cartTotalPaise, lineTotalPaise } from "./pricing.js";
 
 export class DomainError extends Error {
@@ -18,7 +19,7 @@ function databaseOptions(databaseUrl) {
     password: decodeURIComponent(parsed.password),
     database: parsed.pathname.replace(/^\//, ""),
     connectionLimit: 8,
-    connectTimeout: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000)
+    connectTimeout: Number(optional("DB_CONNECTION_TIMEOUT_MS") || 10000)
   };
 }
 

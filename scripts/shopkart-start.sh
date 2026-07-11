@@ -9,5 +9,4 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-npm run db:migrate
 npm run start

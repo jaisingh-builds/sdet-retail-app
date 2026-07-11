@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import mysql from "mysql2/promise";
-import { resolveDatabaseUrl, rootDir, required } from "./config.js";
+import { databaseFailureMessage, optional, resolveDatabaseUrl, rootDir, required } from "./config.js";
 import { hashPassword } from "./passwords.js";
 
 function parseDatabaseUrl(databaseUrl) {
@@ -31,7 +31,7 @@ async function ensureDatabase(connectionOptions) {
     port: connectionOptions.port,
     user: connectionOptions.user,
     password: connectionOptions.password,
-    connectTimeout: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000)
+    connectTimeout: Number(optional("DB_CONNECTION_TIMEOUT_MS") || 10000)
   });
   await connection.query(`CREATE DATABASE IF NOT EXISTS \`${connectionOptions.database}\``);
   await connection.end();
@@ -39,13 +39,21 @@ async function ensureDatabase(connectionOptions) {
 
 export async function migrateDatabase({ databaseUrl = resolveDatabaseUrl(), reset = false } = {}) {
   const options = parseDatabaseUrl(databaseUrl);
-  await ensureDatabase(options);
-
-  const connection = await mysql.createConnection({
-    ...options,
-    multipleStatements: true,
-    connectTimeout: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000)
-  });
+  const connectionConfig = {
+      ...options,
+      multipleStatements: true,
+      connectTimeout: Number(optional("DB_CONNECTION_TIMEOUT_MS") || 10000)
+  };
+  let connection;
+  try {
+    connection = await mysql.createConnection(connectionConfig);
+  } catch (error) {
+    if (error?.code !== "ER_BAD_DB_ERROR") {
+      throw error;
+    }
+    await ensureDatabase(options);
+    connection = await mysql.createConnection(connectionConfig);
+  }
 
   try {
     await connection.query(`
@@ -108,7 +116,9 @@ export async function migrateDatabase({ databaseUrl = resolveDatabaseUrl(), rese
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (invokedDirectly) {
   migrateDatabase({ reset: process.argv.includes("--reset") }).catch((error) => {
-    console.error(`ShopKart migration failed: ${error.message}`);
+    let databaseUrl;
+    try { databaseUrl = resolveDatabaseUrl(); } catch { databaseUrl = ""; }
+    console.error(`ShopKart migration failed: ${databaseFailureMessage(error, databaseUrl)}`);
     process.exitCode = 1;
   });
 }

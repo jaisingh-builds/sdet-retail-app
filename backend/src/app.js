@@ -17,6 +17,9 @@ function errorPayload(code, message) {
 }
 
 function positiveInteger(value, fieldName) {
+  if (typeof value === "string" && !/^[1-9]\d*$/.test(value)) {
+    throw new DomainError(400, "INVALID_REQUEST", `${fieldName} must be a positive integer`);
+  }
   const result = Number(value);
   if (!Number.isSafeInteger(result) || result < 1) {
     throw new DomainError(400, "INVALID_REQUEST", `${fieldName} must be a positive integer`);
@@ -69,8 +72,8 @@ export function createApp({ store, tokenSecret, apiDelayMs = 0 }) {
   app.post("/api/auth/login", asyncRoute(async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    if (!email || !password) {
-      return res.status(400).json(errorPayload("INVALID_REQUEST", "Email and password are required"));
+    if (!email || email.length > 120 || !password || password.length > 128) {
+      return res.status(400).json(errorPayload("INVALID_REQUEST", "Email and password must be within the supported input limits"));
     }
 
     const customer = await store.findCustomerByEmail(email);
@@ -166,6 +169,9 @@ export function createApp({ store, tokenSecret, apiDelayMs = 0 }) {
 
   app.use((req, res) => res.status(404).json(errorPayload("ROUTE_NOT_FOUND", "Route was not found")));
   app.use((error, _req, res, _next) => {
+    if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+      return res.status(400).json(errorPayload("INVALID_JSON", "Request body must contain valid JSON"));
+    }
     if (error instanceof DomainError) {
       return res.status(error.status).json(errorPayload(error.code, error.message));
     }

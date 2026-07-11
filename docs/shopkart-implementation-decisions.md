@@ -13,5 +13,6 @@ These decisions adapt the supplied pre-capstone brief to the UST participant env
 | UI | React with stable, relative-XPath-friendly markup |
 | API documentation | Local Swagger UI and committed OpenAPI YAML |
 | Credentials | Passwords supplied outside Git and converted to hashes during migration |
+| Secret scanning | Gitleaks runs in CI; five inactive demo fingerprints inherited from older branch history are explicitly baselined in `.gitleaksignore` |
 
 The application deliberately does not include the six participant assessment tests. It provides the stable behavior, seed data, UI contract and API contract those tests must automate.

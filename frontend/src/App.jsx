@@ -30,6 +30,10 @@ async function api(path, { method = "GET", token, body } = {}) {
   });
   const payload = await response.json();
   if (!response.ok) {
+    if (response.status === 401 && token) {
+      sessionStorage.removeItem("shopkart.session");
+      window.dispatchEvent(new Event("shopkart:unauthorized"));
+    }
     const error = new Error(payload.error?.message || `Request failed with ${response.status}`);
     error.code = payload.error?.code;
     error.status = response.status;
@@ -63,6 +67,34 @@ function readSession() {
 
 function cartStorageKey(customerId) {
   return `shopkart.cart.${customerId}`;
+}
+
+async function addToActiveCart(session, sku, qty) {
+  const key = cartStorageKey(session.customerId);
+  let cartId = sessionStorage.getItem(key);
+  if (!cartId) {
+    const cart = await api("/carts", { method: "POST", token: session.token });
+    cartId = String(cart.cartId);
+    sessionStorage.setItem(key, cartId);
+  }
+
+  try {
+    return await api(`/carts/${cartId}/items`, {
+      method: "POST",
+      token: session.token,
+      body: { sku, qty }
+    });
+  } catch (error) {
+    if (!["CART_NOT_FOUND", "CART_NOT_OPEN"].includes(error.code)) throw error;
+    sessionStorage.removeItem(key);
+    const replacement = await api("/carts", { method: "POST", token: session.token });
+    sessionStorage.setItem(key, String(replacement.cartId));
+    return api(`/carts/${replacement.cartId}/items`, {
+      method: "POST",
+      token: session.token,
+      body: { sku, qty }
+    });
+  }
 }
 
 function AppShell({ session, onLogout, navigate, children }) {
@@ -151,6 +183,7 @@ function CatalogPage({ session, navigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [addingSku, setAddingSku] = useState("");
 
   const loadProducts = useCallback(async (searchText = "") => {
     setLoading(true);
@@ -178,22 +211,14 @@ function CatalogPage({ session, navigate }) {
     }
     setError("");
     setNotice("");
+    setAddingSku(product.sku);
     try {
-      const key = cartStorageKey(session.customerId);
-      let cartId = sessionStorage.getItem(key);
-      if (!cartId) {
-        const cart = await api("/carts", { method: "POST", token: session.token });
-        cartId = String(cart.cartId);
-        sessionStorage.setItem(key, cartId);
-      }
-      await api(`/carts/${cartId}/items`, {
-        method: "POST",
-        token: session.token,
-        body: { sku: product.sku, qty: 1 }
-      });
+      await addToActiveCart(session, product.sku, 1);
       setNotice(`${product.name} added to cart`);
     } catch (requestError) {
       setError(requestError.message);
+    } finally {
+      setAddingSku("");
     }
   }
 
@@ -207,7 +232,7 @@ function CatalogPage({ session, navigate }) {
         <form className="search-form" role="search" onSubmit={search}>
           <label className="visually-hidden" htmlFor="catalog-search">Search products</label>
           <Search size={19} aria-hidden="true" />
-          <input id="catalog-search" name="q" type="search" maxLength={80} placeholder="Search name, SKU or category" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input id="catalog-search" name="q" type="search" maxLength={80} placeholder="Search products" value={query} onChange={(event) => setQuery(event.target.value)} />
           <button type="submit">Search</button>
         </form>
       </section>
@@ -227,7 +252,7 @@ function CatalogPage({ session, navigate }) {
                 <strong>{money(product.pricePaise)}</strong>
                 <span className={product.stock === 0 ? "stock out" : "stock"}>{product.stock === 0 ? "Out of stock" : `${product.stock} available`}</span>
               </div>
-              <button className="quick-add" type="button" onClick={() => quickAdd(product)} disabled={product.stock === 0}>Add to cart</button>
+              <button className="quick-add" type="button" onClick={() => quickAdd(product)} disabled={product.stock === 0 || Boolean(addingSku)}>{addingSku === product.sku ? "Adding..." : "Add to cart"}</button>
             </div>
           </div>
         ))}
@@ -254,18 +279,7 @@ function ProductPage({ sku, session, navigate }) {
     setBusy(true);
     setError("");
     try {
-      const key = cartStorageKey(session.customerId);
-      let cartId = sessionStorage.getItem(key);
-      if (!cartId) {
-        const cart = await api("/carts", { method: "POST", token: session.token });
-        cartId = String(cart.cartId);
-        sessionStorage.setItem(key, cartId);
-      }
-      await api(`/carts/${cartId}/items`, {
-        method: "POST",
-        token: session.token,
-        body: { sku, qty }
-      });
+      await addToActiveCart(session, sku, qty);
       navigate("/cart");
     } catch (requestError) {
       setError(requestError.message);
@@ -307,7 +321,14 @@ function CartPage({ session, navigate }) {
     if (!session) return;
     const cartId = sessionStorage.getItem(cartStorageKey(session.customerId));
     if (!cartId) return;
-    api(`/carts/${cartId}`, { token: session.token }).then(setCart).catch((requestError) => setError(requestError.message));
+    api(`/carts/${cartId}`, { token: session.token }).then(setCart).catch((requestError) => {
+      if (requestError.code === "CART_NOT_FOUND") {
+        sessionStorage.removeItem(cartStorageKey(session.customerId));
+        setCart(null);
+        return;
+      }
+      setError(requestError.message);
+    });
   }, [session]);
 
   if (!session) return <RequireLogin navigate={navigate} />;
@@ -413,6 +434,15 @@ function RequireLogin({ navigate }) {
 export default function App() {
   const { path, navigate } = useLocation();
   const [session, setSession] = useState(readSession);
+
+  useEffect(() => {
+    const expireSession = () => {
+      setSession(null);
+      navigate("/login");
+    };
+    window.addEventListener("shopkart:unauthorized", expireSession);
+    return () => window.removeEventListener("shopkart:unauthorized", expireSession);
+  }, [navigate]);
 
   function login(result) {
     const nextSession = { token: result.token, customerId: result.customerId, customer: result.customer };

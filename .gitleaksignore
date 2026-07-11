@@ -1,0 +1,7 @@
+# Inherited training-demo fingerprints from the pre-ShopKart history.
+# They are not used by ShopKart. Any new fingerprint still fails the scan.
+b6a3d39f249c4912badde2bc5bfd8bca41cfe88f:frontend/src/App.jsx:generic-api-key:367
+67871363b10a9a0db804dad15e03e83c2129f60b:backend/src/server.js:generic-api-key:77
+67871363b10a9a0db804dad15e03e83c2129f60b:backend/src/server.js:generic-api-key:78
+67871363b10a9a0db804dad15e03e83c2129f60b:backend/src/server.js:generic-api-key:79
+27879d537ac12fdb1e70bab9a9c5307bac58379f:frontend/src/App.jsx:generic-api-key:202

@@ -20,7 +20,7 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   const alicePassword = crypto.randomBytes(18).toString("base64url");
   const bobPassword = crypto.randomBytes(18).toString("base64url");
   const carolPassword = crypto.randomBytes(18).toString("base64url");
-  const databasePassword = crypto.randomBytes(18).toString("base64url");
+  const databasePassword = `${crypto.randomBytes(12).toString("hex")}@:${crypto.randomBytes(6).toString("hex")}`;
   const mysql = await new MySqlContainer("mysql:8.4")
     .withDatabase("shopkart")
     .withUsername("shopkart_user")
@@ -28,6 +28,7 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
     .withRootPassword(crypto.randomBytes(18).toString("base64url"))
     .start();
   t.after(() => mysql.stop());
+  assert.match(mysql.getConnectionUri(), /%40%3A/);
 
   process.env.NODE_ENV = "test";
   process.env.DATABASE_URL = mysql.getConnectionUri();
@@ -60,6 +61,20 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
     body: { email: "alice@shopkart.test", password: "not-the-password" }
   });
   assert.equal(wrongLogin.response.status, 401);
+
+  const malformedJsonResponse = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{"
+  });
+  assert.equal(malformedJsonResponse.status, 400);
+  assert.equal((await malformedJsonResponse.json()).error.code, "INVALID_JSON");
+
+  const oversizedPassword = await jsonRequest(baseUrl, "/api/auth/login", {
+    method: "POST",
+    body: { email: "alice@shopkart.test", password: "x".repeat(129) }
+  });
+  assert.equal(oversizedPassword.response.status, 400);
 
   const unauthenticatedCart = await jsonRequest(baseUrl, "/api/carts", { method: "POST" });
   assert.equal(unauthenticatedCart.response.status, 401);
@@ -173,6 +188,50 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   });
   assert.equal(outOfStock.response.status, 409);
   assert.equal(outOfStock.payload.error.code, "OUT_OF_STOCK");
+
+  const concurrentCart = await jsonRequest(baseUrl, "/api/carts", {
+    method: "POST",
+    token: aliceLogin.payload.token
+  });
+  const concurrentAdds = await Promise.all([
+    jsonRequest(baseUrl, `/api/carts/${concurrentCart.payload.cartId}/items`, {
+      method: "POST",
+      token: aliceLogin.payload.token,
+      body: { sku: "SKU-PEN", qty: 1 }
+    }),
+    jsonRequest(baseUrl, `/api/carts/${concurrentCart.payload.cartId}/items`, {
+      method: "POST",
+      token: aliceLogin.payload.token,
+      body: { sku: "SKU-PEN", qty: 1 }
+    })
+  ]);
+  assert.deepEqual(concurrentAdds.map((result) => result.response.status), [200, 200]);
+  const concurrentCartRead = await jsonRequest(baseUrl, `/api/carts/${concurrentCart.payload.cartId}`, {
+    token: aliceLogin.payload.token
+  });
+  assert.equal(concurrentCartRead.payload.items[0].qty, 2);
+  assert.equal(concurrentCartRead.payload.totalPaise, 19800);
+
+  const concurrentOrders = await Promise.all([
+    jsonRequest(baseUrl, "/api/orders", {
+      method: "POST",
+      token: aliceLogin.payload.token,
+      body: { cartId: concurrentCart.payload.cartId, address: "UST Campus, Technopark, Trivandrum" }
+    }),
+    jsonRequest(baseUrl, "/api/orders", {
+      method: "POST",
+      token: aliceLogin.payload.token,
+      body: { cartId: concurrentCart.payload.cartId, address: "UST Campus, Technopark, Trivandrum" }
+    })
+  ]);
+  assert.deepEqual(
+    concurrentOrders.map((result) => result.response.status).sort(),
+    [201, 409]
+  );
+  const concurrentOrderCount = await mysql.executeQuery(
+    `SELECT COUNT(*) AS order_count FROM shopkart.orders WHERE cart_id = ${concurrentCart.payload.cartId}`
+  );
+  assert.match(concurrentOrderCount, /order_count\s+1/);
 
   await migrateDatabase({ databaseUrl: mysql.getConnectionUri(), reset: true });
   const rowsAfterReset = await mysql.executeQuery("SELECT COUNT(*) AS order_count FROM shopkart.orders");

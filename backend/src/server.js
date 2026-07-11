@@ -1,5 +1,5 @@
 import { createApp } from "./app.js";
-import { loadConfig } from "./config.js";
+import { databaseFailureMessage, loadConfig } from "./config.js";
 import { ShopKartStore } from "./database.js";
 import { migrateDatabase } from "./migrate.js";
 
@@ -34,7 +34,14 @@ export async function startServer(overrides = {}) {
 }
 
 if (process.env.NODE_ENV !== "test") {
-  startServer().then((runtime) => {
+  let startupConfig;
+  try {
+    startupConfig = loadConfig();
+  } catch (error) {
+    console.error(`ShopKart configuration failed: ${error.message}`);
+    process.exitCode = 1;
+  }
+  if (startupConfig) startServer(startupConfig).then((runtime) => {
     const stop = async () => {
       await runtime.close();
       process.exit(0);
@@ -42,7 +49,7 @@ if (process.env.NODE_ENV !== "test") {
     process.once("SIGINT", stop);
     process.once("SIGTERM", stop);
   }).catch((error) => {
-    console.error(`ShopKart failed to start: ${error.message}`);
+    console.error(`ShopKart failed to start: ${databaseFailureMessage(error, startupConfig.databaseUrl)}`);
     process.exitCode = 1;
   });
 }

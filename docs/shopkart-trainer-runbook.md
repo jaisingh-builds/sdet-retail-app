@@ -9,6 +9,7 @@
 5. Open `/api-docs` and confirm all eight assessment endpoints render.
 6. Complete the UI flow from login to `/orders/{id}`.
 7. Confirm `.env` is ignored and no populated credential file is tracked.
+8. Confirm the Gitleaks step scans full history and passes with only the documented legacy baseline.
 
 ## Participant Distribution
 
@@ -55,6 +56,7 @@ npm run db:reset
 | --- | --- |
 | Database connection refused | MySQL service, `DB_HOST`, `DB_PORT` |
 | Access denied | `DB_USER`, `DB_PASSWORD`, grants |
+| Project configuration appears ignored | Process/IntelliJ values override `.env`; within either source, a complete `DB_*` set overrides `DATABASE_URL` |
 | Unknown database | Run `npm run db:migrate`; verify create permission |
 | Login always `401` | Run migration again after setting persona passwords |
 | UI opens but API fails | ShopKart must be started through the backend on port 8080 |
