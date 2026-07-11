@@ -1,0 +1,48 @@
+name: ShopKart CI
+
+on:
+  push:
+    branches: [shopkart]
+  pull_request:
+    branches: [shopkart]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Unit tests and production build
+        run: npm test
+
+      - name: Full API and MySQL Testcontainers proof
+        run: npm run test:ci
+
+      - name: Check committed files for forbidden local secret files
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env|secrets\.local\.properties)$'; then
+            echo "A local secret file is tracked by Git."
+            exit 1
+          fi

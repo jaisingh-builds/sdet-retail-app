@@ -1,178 +1,306 @@
-import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import path from "path";
 import mysql from "mysql2/promise";
+import { cartTotalPaise, lineTotalPaise } from "./pricing.js";
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const envFile = process.env.ENV_FILE
-  ? path.resolve(process.env.ENV_FILE)
-  : path.resolve(currentDir, "../../.env");
-dotenv.config({ path: envFile, quiet: true });
-
-const connectionString = process.env.DATABASE_URL;
-const connectionTimeout = Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000);
-const pool = connectionString
-  ? mysql.createPool({ uri: connectionString, connectTimeout: connectionTimeout, connectionLimit: 5 })
-  : null;
-
-export function databaseEnabled() {
-  return pool !== null;
-}
-
-export function databaseConnectionSummary() {
-  if (!connectionString) {
-    return "DATABASE_URL is not configured";
-  }
-
-  try {
-    const url = new URL(connectionString);
-    const port = url.port || "3306";
-    const database = url.pathname.replace(/^\//, "") || "<missing>";
-    return `${url.protocol}//${url.username || "<missing-user>"}:***@${url.hostname}:${port}/${database}`;
-  } catch {
-    return "DATABASE_URL is set but is not a valid MySQL URL";
+export class DomainError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.status = status;
+    this.code = code;
   }
 }
 
-export function databaseFailureMessage(error) {
-  const code = error?.code || error?.cause?.code || "UNKNOWN";
-  const detail = error?.message || String(error);
-  const networkCodes = new Set(["ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"]);
-
-  if (networkCodes.has(code) || /timeout|connect|network|socket/i.test(detail)) {
-    return [
-      "MySQL target was configured, but the network connection failed.",
-      "Check that the MySQL service is running and that host localhost and TCP port 3306 are available.",
-      "Corporate firewall, VPN, or Zscaler matters only when connecting to a remote MySQL host.",
-      `Driver error: ${code} - ${detail}`
-    ].join("\n");
-  }
-
-  if (code === "ER_ACCESS_DENIED_ERROR") {
-    return `MySQL rejected the username or password.\nDriver error: ${code} - ${detail}`;
-  }
-
-  if (code === "ER_BAD_DB_ERROR") {
-    return `The database in DATABASE_URL does not exist. Create it with: CREATE DATABASE sdet_retail;\nDriver error: ${code} - ${detail}`;
-  }
-
-  if (code === "ER_DBACCESS_DENIED_ERROR" || code === "ER_TABLEACCESS_DENIED_ERROR") {
-    return `The MySQL user does not have permission to create or use the orders table.\nDriver error: ${code} - ${detail}`;
-  }
-
-  return `MySQL initialization failed.\nDriver error: ${code} - ${detail}`;
-}
-
-export async function initializeDatabase(seedOrder) {
-  if (!pool) {
-    return;
-  }
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      order_number VARCHAR(40) NOT NULL UNIQUE,
-      status VARCHAR(30) NOT NULL,
-      payment VARCHAR(30) NOT NULL,
-      payment_method VARCHAR(40) NOT NULL,
-      channel VARCHAR(20) NOT NULL,
-      items JSON NOT NULL,
-      subtotal DECIMAL(12, 2) NOT NULL,
-      shipping DECIMAL(12, 2) NOT NULL,
-      discount DECIMAL(12, 2) NOT NULL,
-      total DECIMAL(12, 2) NOT NULL,
-      address VARCHAR(180) NOT NULL,
-      delivery_slot VARCHAR(80),
-      user_id VARCHAR(80) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) AUTO_INCREMENT = 6001
-  `);
-
-  await pool.execute(
-    `INSERT IGNORE INTO orders (
-       id, order_number, status, payment, payment_method, channel, items,
-       subtotal, shipping, discount, total, address, delivery_slot, user_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      seedOrder.id,
-      seedOrder.orderNumber,
-      seedOrder.status,
-      seedOrder.payment,
-      seedOrder.paymentMethod,
-      seedOrder.channel,
-      JSON.stringify(seedOrder.items),
-      seedOrder.subtotal,
-      seedOrder.shipping,
-      seedOrder.discount,
-      seedOrder.total,
-      seedOrder.address,
-      seedOrder.deliverySlot,
-      "svc-retail-ops"
-    ]
-  );
-}
-
-export async function insertOrder(order, userId) {
-  const [result] = await pool.execute(
-    `INSERT INTO orders (
-       order_number, status, payment, payment_method, channel, items,
-       subtotal, shipping, discount, total, address, delivery_slot, user_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      order.orderNumber,
-      order.status,
-      order.payment,
-      order.paymentMethod,
-      order.channel,
-      JSON.stringify(order.items),
-      order.subtotal,
-      order.shipping,
-      order.discount,
-      order.total,
-      order.address,
-      order.deliverySlot,
-      userId
-    ]
-  );
-
-  return findOrder(result.insertId);
-}
-
-export async function findOrder(orderId) {
-  const [rows] = await pool.execute("SELECT * FROM orders WHERE id = ?", [orderId]);
-  return rows[0] ? mapOrderRow(rows[0]) : null;
-}
-
-export async function deleteOrder(orderId) {
-  const [result] = await pool.execute("DELETE FROM orders WHERE id = ?", [orderId]);
-  return result.affectedRows;
-}
-
-export async function updateOrderStatus(orderId, expectedStatus, nextStatus) {
-  const [result] = await pool.execute(
-    "UPDATE orders SET status = ? WHERE id = ? AND status = ?",
-    [nextStatus, orderId, expectedStatus]
-  );
-  return result.affectedRows === 1 ? findOrder(orderId) : null;
-}
-
-function mapOrderRow(row) {
+function databaseOptions(databaseUrl) {
+  const parsed = new URL(databaseUrl);
   return {
-    id: Number(row.id),
-    orderId: Number(row.id),
-    orderNumber: row.order_number,
-    status: row.status,
-    payment: row.payment,
-    paymentMethod: row.payment_method,
-    channel: row.channel,
-    items: typeof row.items === "string" ? JSON.parse(row.items) : row.items,
-    subtotal: Number(row.subtotal),
-    shipping: Number(row.shipping),
-    discount: Number(row.discount),
-    total: Number(row.total),
-    address: row.address,
-    deliverySlot: row.delivery_slot,
-    userId: row.user_id,
-    createdAt: row.created_at.toISOString()
+    host: parsed.hostname,
+    port: Number(parsed.port || 3306),
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, ""),
+    connectionLimit: 8,
+    connectTimeout: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000)
   };
+}
+
+function mapProduct(row) {
+  return {
+    sku: row.sku,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    pricePaise: Number(row.price_paise),
+    stock: Number(row.stock),
+    imageKey: row.image_key
+  };
+}
+
+function mapCartItem(row) {
+  return {
+    sku: row.sku,
+    name: row.name,
+    qty: Number(row.qty),
+    unitPricePaise: Number(row.unit_price_paise),
+    lineTotalPaise: lineTotalPaise(row.unit_price_paise, row.qty)
+  };
+}
+
+export class ShopKartStore {
+  constructor(pool) {
+    this.pool = pool;
+  }
+
+  static create(databaseUrl) {
+    return new ShopKartStore(mysql.createPool(databaseOptions(databaseUrl)));
+  }
+
+  async close() {
+    await this.pool.end();
+  }
+
+  async ping() {
+    await this.pool.query("SELECT 1");
+  }
+
+  async findCustomerByEmail(email) {
+    const [rows] = await this.pool.execute(
+      "SELECT id, persona, email, password_hash, display_name FROM customers WHERE email = ?",
+      [email]
+    );
+    if (!rows[0]) {
+      return null;
+    }
+    return {
+      id: Number(rows[0].id),
+      persona: rows[0].persona,
+      email: rows[0].email,
+      passwordHash: rows[0].password_hash,
+      displayName: rows[0].display_name
+    };
+  }
+
+  async listProducts(query = "") {
+    const normalized = `%${String(query).trim()}%`;
+    const [rows] = await this.pool.execute(
+      `SELECT sku, name, description, category, price_paise, stock, image_key
+       FROM products
+       WHERE ? = '%%' OR name LIKE ? OR sku LIKE ? OR category LIKE ?
+       ORDER BY name`,
+      [normalized, normalized, normalized, normalized]
+    );
+    return rows.map(mapProduct);
+  }
+
+  async findProduct(sku) {
+    const [rows] = await this.pool.execute(
+      `SELECT sku, name, description, category, price_paise, stock, image_key
+       FROM products WHERE sku = ?`,
+      [sku]
+    );
+    return rows[0] ? mapProduct(rows[0]) : null;
+  }
+
+  async createCart(customerId) {
+    const [result] = await this.pool.execute(
+      "INSERT INTO carts (customer_id, status) VALUES (?, 'OPEN')",
+      [customerId]
+    );
+    return this.getCart(Number(result.insertId), customerId);
+  }
+
+  async getCart(cartId, customerId) {
+    const [cartRows] = await this.pool.execute(
+      "SELECT id, customer_id, status, created_at FROM carts WHERE id = ?",
+      [cartId]
+    );
+    const cart = cartRows[0];
+    if (!cart) {
+      throw new DomainError(404, "CART_NOT_FOUND", "Cart was not found");
+    }
+    if (Number(cart.customer_id) !== Number(customerId)) {
+      throw new DomainError(403, "CART_FORBIDDEN", "The cart belongs to another customer");
+    }
+
+    const [itemRows] = await this.pool.execute(
+      `SELECT ci.sku, p.name, ci.qty, ci.unit_price_paise
+       FROM cart_items ci JOIN products p ON p.sku = ci.sku
+       WHERE ci.cart_id = ? ORDER BY p.name`,
+      [cartId]
+    );
+    const items = itemRows.map(mapCartItem);
+    return {
+      id: Number(cart.id),
+      cartId: Number(cart.id),
+      status: cart.status,
+      items,
+      totalPaise: cartTotalPaise(items)
+    };
+  }
+
+  async addCartItem(cartId, customerId, sku, quantity) {
+    const qty = Number(quantity);
+    if (!Number.isInteger(qty) || qty < 1) {
+      throw new DomainError(400, "INVALID_QUANTITY", "Quantity must be a positive integer");
+    }
+
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [cartRows] = await connection.execute(
+        "SELECT id, customer_id, status FROM carts WHERE id = ? FOR UPDATE",
+        [cartId]
+      );
+      const cart = cartRows[0];
+      if (!cart) {
+        throw new DomainError(404, "CART_NOT_FOUND", "Cart was not found");
+      }
+      if (Number(cart.customer_id) !== Number(customerId)) {
+        throw new DomainError(403, "CART_FORBIDDEN", "The cart belongs to another customer");
+      }
+      if (cart.status !== "OPEN") {
+        throw new DomainError(409, "CART_NOT_OPEN", "Only an open cart can be changed");
+      }
+
+      const [productRows] = await connection.execute(
+        "SELECT sku, price_paise, stock FROM products WHERE sku = ?",
+        [sku]
+      );
+      const product = productRows[0];
+      if (!product) {
+        throw new DomainError(404, "PRODUCT_NOT_FOUND", "Product was not found");
+      }
+
+      const [existingRows] = await connection.execute(
+        "SELECT qty FROM cart_items WHERE cart_id = ? AND sku = ?",
+        [cartId, sku]
+      );
+      const requestedTotal = Number(existingRows[0]?.qty || 0) + qty;
+      if (requestedTotal > Number(product.stock)) {
+        throw new DomainError(409, "OUT_OF_STOCK", `Only ${product.stock} unit(s) are available`);
+      }
+
+      await connection.execute(
+        `INSERT INTO cart_items (cart_id, sku, qty, unit_price_paise)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE qty = VALUES(qty), unit_price_paise = VALUES(unit_price_paise)`,
+        [cartId, sku, requestedTotal, product.price_paise]
+      );
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    return this.getCart(cartId, customerId);
+  }
+
+  async placeOrder(cartId, customerId, address) {
+    const cleanAddress = String(address || "").trim();
+    if (cleanAddress.length < 10 || cleanAddress.length > 240) {
+      throw new DomainError(400, "INVALID_ADDRESS", "Address must contain between 10 and 240 characters");
+    }
+
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [cartRows] = await connection.execute(
+        "SELECT id, customer_id, status FROM carts WHERE id = ? FOR UPDATE",
+        [cartId]
+      );
+      const cart = cartRows[0];
+      if (!cart) {
+        throw new DomainError(404, "CART_NOT_FOUND", "Cart was not found");
+      }
+      if (Number(cart.customer_id) !== Number(customerId)) {
+        throw new DomainError(403, "CART_FORBIDDEN", "The cart belongs to another customer");
+      }
+      if (cart.status !== "OPEN") {
+        throw new DomainError(409, "CART_ALREADY_ORDERED", "The cart has already been ordered");
+      }
+
+      const [itemRows] = await connection.execute(
+        `SELECT ci.sku, p.name, ci.qty, ci.unit_price_paise
+         FROM cart_items ci JOIN products p ON p.sku = ci.sku
+         WHERE ci.cart_id = ? ORDER BY p.name FOR UPDATE`,
+        [cartId]
+      );
+      const items = itemRows.map(mapCartItem);
+      if (items.length === 0) {
+        throw new DomainError(409, "EMPTY_CART", "An empty cart cannot be ordered");
+      }
+      const totalPaise = cartTotalPaise(items);
+
+      const [orderResult] = await connection.execute(
+        `INSERT INTO orders (customer_id, cart_id, status, total_paise, address)
+         VALUES (?, ?, 'PLACED', ?, ?)`,
+        [customerId, cartId, totalPaise, cleanAddress]
+      );
+      const orderId = Number(orderResult.insertId);
+      for (const item of items) {
+        await connection.execute(
+          `INSERT INTO order_items (order_id, sku, name, qty, unit_price_paise, line_total_paise)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [orderId, item.sku, item.name, item.qty, item.unitPricePaise, item.lineTotalPaise]
+        );
+      }
+      await connection.execute("UPDATE carts SET status = 'ORDERED' WHERE id = ?", [cartId]);
+      await connection.commit();
+      return this.getOrder(orderId, customerId);
+    } catch (error) {
+      await connection.rollback();
+      if (error?.code === "ER_DUP_ENTRY") {
+        throw new DomainError(409, "CART_ALREADY_ORDERED", "The cart has already been ordered");
+      }
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async getOrder(orderId, customerId) {
+    const [orderRows] = await this.pool.execute(
+      `SELECT id, customer_id, cart_id, status, total_paise, address, created_at
+       FROM orders WHERE id = ?`,
+      [orderId]
+    );
+    const order = orderRows[0];
+    if (!order) {
+      throw new DomainError(404, "ORDER_NOT_FOUND", "Order was not found");
+    }
+    if (Number(order.customer_id) !== Number(customerId)) {
+      throw new DomainError(403, "ORDER_FORBIDDEN", "The order belongs to another customer");
+    }
+
+    const [itemRows] = await this.pool.execute(
+      `SELECT sku, name, qty, unit_price_paise, line_total_paise
+       FROM order_items WHERE order_id = ? ORDER BY name`,
+      [orderId]
+    );
+    return {
+      id: Number(order.id),
+      orderId: Number(order.id),
+      customerId: Number(order.customer_id),
+      cartId: Number(order.cart_id),
+      status: order.status,
+      totalPaise: Number(order.total_paise),
+      address: order.address,
+      createdAt: order.created_at.toISOString(),
+      items: itemRows.map((item) => ({
+        sku: item.sku,
+        name: item.name,
+        qty: Number(item.qty),
+        unitPricePaise: Number(item.unit_price_paise),
+        lineTotalPaise: Number(item.line_total_paise)
+      }))
+    };
+  }
+
+  async cancelOrder(orderId, customerId) {
+    const order = await this.getOrder(orderId, customerId);
+    if (order.status !== "PLACED") {
+      throw new DomainError(409, "ORDER_NOT_PLACED", "Only a placed order can be cancelled");
+    }
+    await this.pool.execute("UPDATE orders SET status = 'CANCELLED' WHERE id = ?", [orderId]);
+    return this.getOrder(orderId, customerId);
+  }
 }

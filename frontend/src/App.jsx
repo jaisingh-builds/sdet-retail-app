@@ -1,3918 +1,440 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  LogIn,
+  LogOut,
+  Search,
+  ShoppingBag,
+  ShoppingCart
+} from "lucide-react";
+import "./App.css";
 
-const defaultApiBaseUrl =
-  window.location.hostname && !["localhost", "127.0.0.1"].includes(window.location.hostname)
-    ? `${window.location.protocol}//${window.location.hostname}:4000`
-    : "http://localhost:4000";
-const apiBaseUrl = import.meta.env.VITE_POS_API_URL || defaultApiBaseUrl;
-const classroomCustomer = {
-  email: "customer@example.com",
-  name: "Customer User",
-  role: "customer",
-  token: "demo-token-1-customer"
-};
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
-const inputLimits = {
-  search: 60,
-  email: 80,
-  password: 64,
-  supportTicket: 24,
-  orderId: 16,
-  address: 180,
-  coupon: 12,
-  productName: 60,
-  profileName: 60,
-  phone: 20,
-  price: { min: 1, max: 999999 },
-  stock: { min: 0, max: 999 },
-  quantity: { min: 1, max: 5 }
-};
-
-const navItems = [
-  { label: "Home", href: "/home", status: "Ready" },
-  { label: "Login", href: "/login", status: "Day 2" },
-  { label: "Sync Lab", href: "/sync-lab", status: "Day 3" },
-  { label: "Profile", href: "/profile", status: "Day 3" },
-  { label: "Products", href: "/catalog", status: "Day 4" },
-  { label: "Frames", href: "/frames-lab", status: "Day 4" },
-  { label: "A11y Lab", href: "/a11y-lab", status: "Day 4" },
-  { label: "Debug", href: "/debug-lab", status: "Day 5" },
-  { label: "POS", href: "/pos", status: "W5D4" },
-  { label: "Returns", href: "/returns", status: "W5D5" },
-  { label: "Cart", href: "/cart", status: "Week 1" },
-  { label: "Checkout", href: "/checkout", status: "Week 4" },
-  { label: "Orders", href: "/orders", status: "Week 2" },
-  { label: "API Docs", href: "/api-docs", status: "Week 2" },
-  { label: "Admin", href: "/admin/products", status: "Week 5" }
-];
-
-const apiDocs = [
-  {
-    group: "Health and Catalog",
-    description: "Open endpoints used in Week 2 Day 1 and Day 3 schema validation.",
-    endpoints: [
-      {
-        method: "GET",
-        path: "/api/health",
-        auth: "None",
-        purpose: "Check whether the retail API is running.",
-        request: null,
-        response: {
-          status: "ok",
-          service: "sdet-retail-app",
-          authDemo: "w2d4"
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/products?search=shoe&category=Footwear",
-        auth: "None",
-        purpose: "List products with optional search and category filters.",
-        request: null,
-        response: {
-          items: [
-            {
-              id: 101,
-              name: "Running Shoes",
-              category: "Footwear",
-              price: 4499,
-              stock: 18
-            }
-          ],
-          total: 1
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/products/101",
-        auth: "None",
-        purpose: "Read one product for JsonPath, record mapping, and schema examples.",
-        request: null,
-        response: {
-          id: 101,
-          name: "Running Shoes",
-          category: "Footwear",
-          price: 4499,
-          stock: 18
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/legacy/products/101.xml",
-        auth: "None",
-        purpose: "Legacy XML endpoint used for XSD validation.",
-        request: null,
-        responseText: [
-          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-          "<product>",
-          "  <id>101</id>",
-          "  <name>Running Shoes</name>",
-          "  <category>Footwear</category>",
-          "  <price>4499</price>",
-          "</product>"
-        ].join("\n")
-      }
-    ]
-  },
-  {
-    group: "Customer Login, Cart, Orders",
-    description: "Customer flow endpoints used by UI and RestAssured create-then-read demos.",
-    endpoints: [
-      {
-        method: "POST",
-        path: "/api/auth/login",
-        auth: "None",
-        purpose: "Authenticate a classroom customer and receive a demo bearer token.",
-        request: {
-          email: "customer@example.com",
-          password: "Password@123"
-        },
-        response: {
-          token: "demo-token-1-customer",
-          user: {
-            id: 1,
-            email: "customer@example.com",
-            role: "customer",
-            name: "Customer User"
-          }
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/cart/items",
-        auth: "Bearer token",
-        purpose: "Add a product to the authenticated user's cart.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "X-Cart-Session": "classroom-session"
-        },
-        request: {
-          productId: 101,
-          quantity: 2,
-          size: "UK 9",
-          color: "Navy",
-          fulfilment: "Home delivery"
-        },
-        response: {
-          id: 1,
-          productId: 101,
-          quantity: 2,
-          product: {
-            id: 101,
-            name: "Running Shoes",
-            price: 4499
-          }
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/orders",
-        auth: "Bearer token",
-        purpose: "Create an order from the current cart.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "X-Cart-Session": "classroom-session"
-        },
-        request: {
-          paymentMethod: "Credit card",
-          deliverySlot: "Tomorrow 10 AM - 1 PM",
-          address: "UST Training Lab, Bengaluru",
-          shipping: 49,
-          discount: 0
-        },
-        response: {
-          id: 5001,
-          orderNumber: "ORD-1010",
-          status: "Confirmed",
-          payment: "Paid",
-          total: 9047
-        }
-      }
-    ]
-  },
-  {
-    group: "Week 5 Resilience, Returns, Refunds",
-    description: "Endpoints used by Week 5 Day 4 offline POS and Day 5 refund money-flow labs.",
-    endpoints: [
-      {
-        method: "POST",
-        path: "/api/sales",
-        auth: "Bearer token",
-        purpose: "Sync a queued POS sale with an Idempotency-Key so reconnect retries do not double-post.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Idempotency-Key": "sale-2026-001",
-          "Content-Type": "application/json"
-        },
-        request: {
-          clientSaleId: "sale-2026-001",
-          productId: 101,
-          productName: "Running Shoes",
-          quantity: 1,
-          total: 4499,
-          cashier: "customer@example.com"
-        },
-        response: {
-          id: 9001,
-          saleNumber: "SALE-9001",
-          clientSaleId: "sale-2026-001",
-          status: "SYNCED",
-          total: 4499
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/refund-lab/orders",
-        auth: "Bearer token",
-        purpose: "Seed a refund lab order with paise-safe line totals and tax for Week 5 Day 5 tests.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Content-Type": "application/json"
-        },
-        request: {
-          daysAgo: 5,
-          taxPaise: 4995,
-          lines: [{ sku: "TEE", name: "Training Tee", unitPaise: 33300, qty: 3 }]
-        },
-        response: {
-          id: 7001,
-          orderNumber: "RET-7001",
-          daysAgo: 5,
-          returnWindowDays: 30,
-          totalPaise: 104895,
-          refundableBalancePaise: 104895,
-          status: "PAID"
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/refund-lab/orders/{id}",
-        auth: "Bearer token",
-        purpose: "Read the refund ledger after full, partial, rejected, or idempotent refund attempts.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer"
-        },
-        request: null,
-        response: {
-          id: 7001,
-          orderNumber: "RET-7001",
-          status: "PARTIALLY_REFUNDED",
-          refundCount: 1,
-          refundableBalancePaise: 69930,
-          lastRefund: { refundId: 8001, amountPaise: 34965 }
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/refunds/check",
-        auth: "Bearer token",
-        purpose: "Check refund eligibility and return a stable verdict code without moving money.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Content-Type": "application/json"
-        },
-        request: {
-          orderId: 7001,
-          lines: [{ sku: "TEE", qty: 1 }]
-        },
-        response: {
-          orderId: 7001,
-          verdict: "APPROVED",
-          reason: null
-        },
-        responseText: [
-          "Verdicts returned by this endpoint:",
-          "APPROVED - refund can proceed",
-          "OUT_OF_WINDOW - daysAgo is greater than returnWindowDays; the lab default is 30 days",
-          "FINAL_SALE - requested line is final sale",
-          "NON_RETURNABLE - requested line is marked non-returnable",
-          "OVER_REFUND - requested quantity is more than remaining refundable quantity",
-          "ALREADY_REFUNDED - requested line was already fully refunded",
-          "UNKNOWN_SKU - requested sku does not exist on the order",
-          "ZERO_QUANTITY - no valid return quantity was requested",
-          "ORDER_NOT_FOUND - orderId was not found for the current refund session"
-        ].join("\n")
-      },
-      {
-        method: "POST",
-        path: "/api/refunds/check",
-        auth: "Bearer token",
-        purpose: "Negative example: an order seeded with daysAgo greater than 30 returns OUT_OF_WINDOW without moving money.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Content-Type": "application/json"
-        },
-        request: {
-          order: {
-            daysAgo: 40,
-            lines: [{ sku: "TEE", unitPaise: 33300, qty: 3 }]
-          },
-          lines: [{ sku: "TEE", qty: 1 }]
-        },
-        response: {
-          orderId: 7002,
-          verdict: "OUT_OF_WINDOW",
-          reason: "OUT_OF_WINDOW"
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/refunds/check",
-        auth: "Bearer token",
-        purpose: "Negative example: quantity greater than the purchased quantity returns OVER_REFUND without moving money.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Content-Type": "application/json"
-        },
-        request: {
-          orderId: 7001,
-          lines: [{ sku: "TEE", qty: 4 }]
-        },
-        response: {
-          orderId: 7001,
-          verdict: "OVER_REFUND",
-          reason: "OVER_REFUND"
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/refunds",
-        auth: "Bearer token + Idempotency-Key",
-        purpose: "Create a full or partial refund. Reusing the same Idempotency-Key replays the same refund.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Idempotency-Key": "refund-2026-001",
-          "Content-Type": "application/json"
-        },
-        request: {
-          orderId: 7001,
-          lines: [{ sku: "TEE", qty: 1 }]
-        },
-        response: {
-          refundId: 8001,
-          amountPaise: 34965,
-          lineAmountPaise: 33300,
-          taxPaise: 1665,
-          taxShares: [1665, 1665, 1665],
-          refundCount: 1
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/refunds",
-        auth: "Bearer token + Idempotency-Key",
-        purpose: "Negative example: rejected refund responses use HTTP 422 and the same stable reason codes as eligibility checks.",
-        headers: {
-          Authorization: "Bearer demo-token-1-customer",
-          "Idempotency-Key": "refund-2026-reject-001",
-          "Content-Type": "application/json"
-        },
-        request: {
-          orderId: 7001,
-          lines: [{ sku: "TEE", qty: 4 }]
-        },
-        response: {
-          message: "Refund rejected",
-          verdict: "OVER_REFUND",
-          reason: "OVER_REFUND"
-        },
-        responseText: "Other possible rejection reasons: OUT_OF_WINDOW, FINAL_SALE, NON_RETURNABLE, ALREADY_REFUNDED, UNKNOWN_SKU, ZERO_QUANTITY. Missing orders return 404 with ORDER_NOT_FOUND."
-      }
-    ]
-  },
-  {
-    group: "API Authentication",
-    description: "Week 2 Day 4 endpoints for OAuth-style bearer tokens, API keys, and negative auth tests.",
-    endpoints: [
-      {
-        method: "POST",
-        path: "/api/oauth/token",
-        auth: "Basic client credentials",
-        purpose: "Fetch a JWT-style access token for secure API tests.",
-        headers: {
-          Authorization: "Basic base64(client-id:client-secret)",
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
-        },
-        requestText: "grant_type=client_credentials",
-        response: {
-          access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          token_type: "Bearer",
-          expires_in: 3600,
-          scope: "orders:read orders:write"
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/secure/orders/5001",
-        auth: "Bearer token with orders:read",
-        purpose: "Read a secured order. Missing, invalid, or expired token returns 401.",
-        headers: {
-          Authorization: "Bearer <access_token>"
-        },
-        request: null,
-        response: {
-          id: 5001,
-          orderNumber: "ORD-5001",
-          status: "Confirmed",
-          items: [{ productId: 101, quantity: 2 }]
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/secure/orders",
-        auth: "Bearer OPS token with orders:write",
-        purpose: "Slide 23 secured create-order flow.",
-        headers: {
-          Authorization: "Bearer <ops_access_token>",
-          "Content-Type": "application/json"
-        },
-        request: {
-          items: [101, 107],
-          currency: "INR"
-        },
-        response: {
-          id: 6001,
-          orderId: 6001,
-          orderNumber: "ORD-6001",
-          status: "CREATED",
-          items: [{ productId: 101 }, { productId: 107 }]
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/partner/orders/5001",
-        auth: "X-API-Key",
-        purpose: "API-key variant for partner access tests.",
-        headers: {
-          "X-API-Key": "<configured-api-key>"
-        },
-        request: null,
-        response: {
-          partner: "UST Partner Channel",
-          order: {
-            id: 5001,
-            orderNumber: "ORD-5001"
-          }
-        }
-      }
-    ]
-  },
-  {
-    group: "Negative Auth Matrix",
-    description: "Expected failures participants should assert exactly, not as generic non-200 checks.",
-    endpoints: [
-      {
-        method: "GET",
-        path: "/api/secure/orders/5001",
-        auth: "Missing token",
-        purpose: "No Authorization header.",
-        request: null,
-        response: {
-          status: 401,
-          header: "WWW-Authenticate: Bearer error=\"missing_token\"",
-          body: { message: "Authentication required" }
-        }
-      },
-      {
-        method: "GET",
-        path: "/api/secure/orders/5001",
-        auth: "Invalid or expired token",
-        purpose: "Garbage or expired bearer token.",
-        request: null,
-        response: {
-          status: 401,
-          header: "WWW-Authenticate: Bearer error=\"invalid_token\"",
-          body: { message: "Invalid access token" }
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/secure/orders",
-        auth: "Valid VIEWER token",
-        purpose: "Known caller without OPS role.",
-        request: { items: [101], currency: "INR" },
-        response: {
-          status: 403,
-          body: { message: "OPS role required" }
-        }
-      }
-    ]
-  },
-  {
-    group: "Gate 2 Order Lifecycle",
-    description: "Week 2 Day 6 endpoints for state transitions, schema checks, and database reconciliation.",
-    endpoints: [
-      {
-        method: "POST",
-        path: "/api/secure/orders/{id}/allocate",
-        auth: "Bearer OPS token with orders:write",
-        purpose: "Move an order from CREATED to ALLOCATED.",
-        headers: {
-          Authorization: "Bearer <ops_access_token>",
-          "Content-Type": "application/json"
-        },
-        response: {
-          id: 6001,
-          orderId: 6001,
-          orderNumber: "ORD-6001",
-          status: "ALLOCATED"
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/secure/orders/{id}/ship",
-        auth: "Bearer OPS token with orders:write",
-        purpose: "Move an allocated order from ALLOCATED to SHIPPED.",
-        headers: {
-          Authorization: "Bearer <ops_access_token>",
-          "Content-Type": "application/json"
-        },
-        response: {
-          id: 6001,
-          orderId: 6001,
-          orderNumber: "ORD-6001",
-          status: "SHIPPED"
-        }
-      },
-      {
-        method: "POST",
-        path: "/api/secure/orders/{id}/ship",
-        auth: "Bearer OPS token with orders:write",
-        purpose: "Reject shipping before allocation with an exact conflict response.",
-        response: {
-          status: 409,
-          body: {
-            message: "Cannot move order from CREATED to SHIPPED",
-            currentStatus: "CREATED",
-            expectedStatus: "ALLOCATED"
-          }
-        }
-      }
-    ]
-  }
-];
-
-const products = [
-  {
-    id: 101,
-    name: "Running Shoes",
-    slug: "running-shoes",
-    category: "Footwear",
-    brand: "SwiftRun",
-    sku: "FT-SHOE-101",
-    price: 4499,
-    rating: 4.7,
-    stock: 18,
-    reorderLevel: 8,
-    warehouse: "BLR-A1",
-    imageTone: "teal",
-    colors: ["Navy", "Black", "White"],
-    sizes: ["UK 7", "UK 8", "UK 9", "UK 10"],
-    summary: "Lightweight daily trainers with breathable mesh and steady heel support.",
-    delivery: "Ships tomorrow",
-    warranty: "6-month sole warranty",
-    returnWindow: "10-day easy exchange",
-    tags: ["Best seller", "Running", "COD eligible"],
-    highlights: ["Breathable mesh upper", "High-grip outsole", "Foam heel support"],
-    specs: { Weight: "620 g", Material: "Engineered mesh", "Use case": "Daily running" }
-  },
-  {
-    id: 102,
-    name: "Travel Backpack",
-    slug: "travel-backpack",
-    category: "Bags",
-    brand: "TrailVault",
-    sku: "BG-TRVL-102",
-    price: 3299,
-    rating: 4.5,
-    stock: 11,
-    reorderLevel: 6,
-    warehouse: "HYD-B2",
-    imageTone: "green",
-    colors: ["Forest", "Graphite"],
-    sizes: ["20 L", "30 L", "40 L"],
-    summary: "Cabin-friendly backpack with laptop storage, rain cover, and quick-access pockets.",
-    delivery: "Ships in 2 days",
-    warranty: "1-year zip warranty",
-    returnWindow: "7-day return",
-    tags: ["Travel", "Laptop safe", "Rain cover"],
-    highlights: ["Dedicated 15-inch laptop sleeve", "Wet pocket", "Side bottle holder"],
-    specs: { Capacity: "30 L", Material: "Ripstop polyester", Weight: "880 g" }
-  },
-  {
-    id: 103,
-    name: "Noise Canceling Headphones",
-    slug: "noise-canceling-headphones",
-    category: "Electronics",
-    brand: "SoundNest",
-    sku: "EL-AUD-103",
-    price: 7999,
-    rating: 4.8,
-    stock: 7,
-    reorderLevel: 10,
-    warehouse: "BLR-C3",
-    imageTone: "slate",
-    colors: ["Black", "Silver"],
-    sizes: ["Standard"],
-    summary: "Wireless over-ear headphones with long battery life and commute-ready ANC.",
-    delivery: "Limited stock",
-    warranty: "1-year manufacturer warranty",
-    returnWindow: "7-day replacement",
-    tags: ["Low stock", "Bluetooth", "ANC"],
-    highlights: ["42-hour battery", "Fast charge", "Dual-device pairing"],
-    specs: { Battery: "42 hours", Connectivity: "Bluetooth 5.3", Charging: "USB-C" }
-  },
-  {
-    id: 104,
-    name: "Insulated Water Bottle",
-    slug: "insulated-water-bottle",
-    category: "Fitness",
-    brand: "HydraPeak",
-    sku: "FT-BTL-104",
-    price: 999,
-    rating: 4.3,
-    stock: 42,
-    reorderLevel: 12,
-    warehouse: "CHN-D1",
-    imageTone: "blue",
-    colors: ["Blue", "Steel", "Green"],
-    sizes: ["750 ml", "1 L"],
-    summary: "Leak-proof bottle that keeps drinks cold through long office and training days.",
-    delivery: "Same-day pickup",
-    warranty: "No-leak replacement",
-    returnWindow: "7-day return",
-    tags: ["Pickup ready", "BPA free", "Fitness"],
-    highlights: ["24-hour cold retention", "Wide-mouth cap", "Sweat-proof finish"],
-    specs: { Capacity: "1 L", Material: "Stainless steel", Finish: "Powder coated" }
-  },
-  {
-    id: 105,
-    name: "Yoga Mat",
-    slug: "yoga-mat",
-    category: "Fitness",
-    brand: "FlexWell",
-    sku: "FT-YOGA-105",
-    price: 1499,
-    rating: 4.4,
-    stock: 23,
-    reorderLevel: 9,
-    warehouse: "BLR-A2",
-    imageTone: "purple",
-    colors: ["Teal", "Purple"],
-    sizes: ["6 mm", "8 mm"],
-    summary: "Non-slip mat with firm cushioning for daily stretching and workout routines.",
-    delivery: "Ships tomorrow",
-    warranty: "3-month peel warranty",
-    returnWindow: "7-day return",
-    tags: ["Workout", "Beginner friendly", "Non-slip"],
-    highlights: ["Textured grip", "Carry strap included", "Sweat-resistant surface"],
-    specs: { Thickness: "8 mm", Length: "183 cm", Material: "TPE foam" }
-  },
-  {
-    id: 106,
-    name: "Rain Jacket",
-    slug: "rain-jacket",
-    category: "Apparel",
-    brand: "MonsoonLab",
-    sku: "AP-RAIN-106",
-    price: 2799,
-    rating: 4.2,
-    stock: 9,
-    reorderLevel: 10,
-    warehouse: "MUM-R1",
-    imageTone: "yellow",
-    colors: ["Yellow", "Olive", "Black"],
-    sizes: ["S", "M", "L", "XL"],
-    summary: "Packable waterproof jacket with taped seams and adjustable hood.",
-    delivery: "Ships in 2 days",
-    warranty: "Seasonal waterproof warranty",
-    returnWindow: "10-day exchange",
-    tags: ["Low stock", "Waterproof", "Monsoon"],
-    highlights: ["Taped seams", "Packable pouch", "Adjustable hood"],
-    specs: { Material: "Polyester shell", Rating: "5K waterproof", Weight: "410 g" }
-  },
-  {
-    id: 107,
-    name: "Smart Desk Lamp",
-    slug: "smart-desk-lamp",
-    category: "Workspace",
-    brand: "LumaDesk",
-    sku: "WS-LAMP-107",
-    price: 2199,
-    rating: 4.6,
-    stock: 16,
-    reorderLevel: 8,
-    warehouse: "BLR-C1",
-    imageTone: "amber",
-    colors: ["White", "Graphite"],
-    sizes: ["Standard"],
-    summary: "Dimmable desk lamp with reading, focus, and night modes for hybrid work setups.",
-    delivery: "Ships tomorrow",
-    warranty: "1-year electrical warranty",
-    returnWindow: "7-day replacement",
-    tags: ["Workspace", "USB-C", "Dimmable"],
-    highlights: ["Touch controls", "USB-C charging port", "Three color temperatures"],
-    specs: { Power: "12 W", Modes: "3 light modes", Material: "Aluminium" }
-  },
-  {
-    id: 108,
-    name: "Organic Snack Box",
-    slug: "organic-snack-box",
-    category: "Grocery",
-    brand: "GoodGrain",
-    sku: "GR-SNCK-108",
-    price: 1199,
-    rating: 4.1,
-    stock: 35,
-    reorderLevel: 15,
-    warehouse: "DEL-F1",
-    imageTone: "orange",
-    colors: ["Assorted"],
-    sizes: ["12 pack"],
-    summary: "Assorted office snack box with millet bars, roasted nuts, and baked crisps.",
-    delivery: "Same-day delivery",
-    warranty: "Freshness guaranteed",
-    returnWindow: "Non-returnable grocery",
-    tags: ["Fresh stock", "Office pantry", "Vegetarian"],
-    highlights: ["12 individually packed snacks", "No artificial colors", "Pantry-ready carton"],
-    specs: { Packs: "12", ShelfLife: "90 days", Diet: "Vegetarian" }
-  },
-  {
-    id: 109,
-    name: "Ceramic Dinner Set",
-    slug: "ceramic-dinner-set",
-    category: "Home",
-    brand: "TableCraft",
-    sku: "HM-DINE-109",
-    price: 3899,
-    rating: 4.5,
-    stock: 6,
-    reorderLevel: 8,
-    warehouse: "PUN-H1",
-    imageTone: "rose",
-    colors: ["Ivory", "Sage"],
-    sizes: ["12 piece", "18 piece"],
-    summary: "Microwave-safe ceramic dinner set for family dining and gifting.",
-    delivery: "Fragile handling",
-    warranty: "Transit breakage covered",
-    returnWindow: "5-day replacement",
-    tags: ["Low stock", "Giftable", "Fragile"],
-    highlights: ["Dinner plates and bowls", "Dishwasher safe", "Gift-ready packaging"],
-    specs: { Pieces: "18", Material: "Ceramic", Care: "Dishwasher safe" }
-  },
-  {
-    id: 110,
-    name: "Resistance Bands Kit",
-    slug: "resistance-bands-kit",
-    category: "Fitness",
-    brand: "CoreFlex",
-    sku: "FT-BAND-110",
-    price: 1299,
-    rating: 4.4,
-    stock: 31,
-    reorderLevel: 10,
-    warehouse: "BLR-A2",
-    imageTone: "red",
-    colors: ["Multi"],
-    sizes: ["5 band kit"],
-    summary: "Five-level resistance kit with handles, door anchor, and travel pouch.",
-    delivery: "Ships tomorrow",
-    warranty: "3-month snap warranty",
-    returnWindow: "7-day return",
-    tags: ["Home workout", "Travel kit", "Beginner friendly"],
-    highlights: ["5 resistance levels", "Door anchor included", "Exercise guide card"],
-    specs: { Levels: "5", MaxResistance: "45 kg", Material: "Latex" }
-  },
-  {
-    id: 111,
-    name: "Skin Care Travel Kit",
-    slug: "skin-care-travel-kit",
-    category: "Beauty",
-    brand: "GlowRoute",
-    sku: "BT-SKIN-111",
-    price: 2499,
-    rating: 4.2,
-    stock: 14,
-    reorderLevel: 7,
-    warehouse: "DEL-B1",
-    imageTone: "pink",
-    colors: ["Classic"],
-    sizes: ["Mini kit"],
-    summary: "Travel-friendly cleanser, moisturiser, sunscreen, and pouch bundle.",
-    delivery: "Ships in 2 days",
-    warranty: "Batch quality guarantee",
-    returnWindow: "Sealed returns only",
-    tags: ["Travel", "SPF", "Giftable"],
-    highlights: ["TSA-friendly sizes", "Reusable pouch", "Dermatologist tested"],
-    specs: { Items: "4", SkinType: "All skin types", Volume: "50 ml each" }
-  },
-  {
-    id: 112,
-    name: "Kids Learning Tablet",
-    slug: "kids-learning-tablet",
-    category: "Electronics",
-    brand: "BrightByte",
-    sku: "EL-KIDS-112",
-    price: 9999,
-    rating: 4.6,
-    stock: 5,
-    reorderLevel: 8,
-    warehouse: "BLR-C3",
-    imageTone: "cyan",
-    colors: ["Blue", "Pink"],
-    sizes: ["64 GB"],
-    summary: "Kid-safe tablet with parental controls, learning apps, and shock-proof case.",
-    delivery: "Limited stock",
-    warranty: "1-year device warranty",
-    returnWindow: "7-day replacement",
-    tags: ["Low stock", "Parental controls", "Learning"],
-    highlights: ["Preloaded learning apps", "Shock-proof case", "Screen-time controls"],
-    specs: { Storage: "64 GB", Battery: "8 hours", Display: "8 inch" }
-  }
-];
-
-const orders = [
-  {
-    id: "ORD-1007",
-    placedOn: "2026-06-03",
-    status: "Ready for dispatch",
-    payment: "Paid",
-    total: 9197,
-    items: ["Running Shoes", "Express shipping"],
-    channel: "Web",
-    customer: "Customer User",
-    fulfilmentCenter: "BLR-A1",
-    sla: "Dispatch today",
-    timeline: ["Order placed", "Payment captured", "Picking in progress", "Ready for dispatch"]
-  },
-  {
-    id: "ORD-1006",
-    placedOn: "2026-06-01",
-    status: "Delivered",
-    payment: "Paid",
-    total: 4298,
-    items: ["Travel Backpack", "Insulated Water Bottle"],
-    channel: "Store pickup",
-    customer: "Priya Nair",
-    fulfilmentCenter: "HYD-B2",
-    sla: "Delivered",
-    timeline: ["Order placed", "Packed", "Pickup ready", "Delivered"]
-  },
-  {
-    id: "ORD-1005",
-    placedOn: "2026-05-29",
-    status: "Return requested",
-    payment: "Refund pending",
-    total: 2799,
-    items: ["Rain Jacket"],
-    channel: "Web",
-    customer: "Arjun Mehta",
-    fulfilmentCenter: "MUM-R1",
-    sla: "Return pickup due",
-    timeline: ["Order placed", "Delivered", "Return requested", "Refund review"]
-  }
-];
-
-const operationMetrics = [
-  { label: "Open carts", value: "18", detail: "5 need payment follow-up" },
-  { label: "Orders today", value: "126", detail: "92% within SLA" },
-  { label: "Low stock SKUs", value: "4", detail: "Electronics and home alerts" },
-  { label: "Mock services", value: "3", detail: "Payment, shipping, notification" }
-];
-
-const fulfilmentSignals = [
-  { label: "Payment gateway", value: "UP", detail: "WireMock success mapping ready" },
-  { label: "Inventory sync", value: "Delayed", detail: "Use traces to spot slow responses" },
-  { label: "Shipping estimate", value: "Iframe", detail: "Third-party widget exercise" }
-];
-
-const experienceHighlights = [
-  { label: "Journey coverage", value: "UI + API", detail: "Search, cart, checkout, order evidence" },
-  { label: "Quality gates", value: "A11y", detail: "Axe scans with critical and serious gates" },
-  { label: "Debug labs", value: "Trace", detail: "Network, console, screenshots, video, traces" }
-];
-
-const retailWorkflows = [
-  { title: "Customer journey", detail: "Search a product, configure options, add to cart, and place an order." },
-  { title: "Operations review", detail: "Inspect orders, payment state, fulfilment signals, and line-item evidence." },
-  { title: "Quality engineering", detail: "Use locators, network waits, a11y scans, and repeat runs to prove stability." }
-];
-
-function formatPrice(amount) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
-}
-
-function formatPaise(paise) {
+function money(paise) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR"
-  }).format(Number(paise || 0) / 100);
+  }).format(Number(paise) / 100);
 }
 
-function findProduct(slug) {
-  return products.find((product) => product.slug === slug) || products[0];
-}
-
-function searchableProductText(product) {
-  return [
-    product.name,
-    product.category,
-    product.brand,
-    product.sku,
-    product.summary,
-    product.delivery,
-    product.warranty,
-    product.returnWindow,
-    ...(product.tags || []),
-    ...(product.highlights || []),
-    ...Object.values(product.specs || {})
-  ]
-    .join(" ")
-    .toLowerCase();
-}
-
-function productMatchesSearch(product, query) {
-  const normalizedQuery = query.trim().toLowerCase();
-  return !normalizedQuery || searchableProductText(product).includes(normalizedQuery);
-}
-
-function slugify(value) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
-function limitText(value, maxLength) {
-  return String(value || "").slice(0, maxLength);
-}
-
-function limitIntegerText(value, { min, max }) {
-  const digitsOnly = String(value || "").replace(/\D/g, "");
-  if (!digitsOnly) {
-    return "";
+async function api(path, { method = "GET", token, body } = {}) {
+  const response = await fetch(`${API_BASE}/api${path}`, {
+    method,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body ? { "Content-Type": "application/json" } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    const error = new Error(payload.error?.message || `Request failed with ${response.status}`);
+    error.code = payload.error?.code;
+    error.status = response.status;
+    throw error;
   }
-
-  const numericValue = Math.max(min, Math.min(max, Number(digitsOnly)));
-  return String(numericValue);
+  return payload;
 }
 
-function limitInteger(value, { min, max }) {
-  const numericValue = Number(value);
-  if (!Number.isInteger(numericValue)) {
-    return min;
-  }
-  return Math.max(min, Math.min(max, numericValue));
+function useLocation() {
+  const [path, setPath] = useState(window.location.pathname);
+  useEffect(() => {
+    const update = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
+  }, []);
+  const navigate = useCallback((nextPath) => {
+    window.history.pushState({}, "", nextPath);
+    setPath(nextPath);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+  return { path, navigate };
 }
 
-function readCartSessionId() {
-  const existing = window.sessionStorage.getItem("sdet-retail-cart-session");
-  if (existing) {
-    return existing;
-  }
-
-  const sessionId = `cart-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  window.sessionStorage.setItem("sdet-retail-cart-session", sessionId);
-  return sessionId;
-}
-
-function readPosOutbox() {
+function readSession() {
   try {
-    const stored = window.localStorage.getItem("sdet-retail-pos-outbox");
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writePosOutbox(items) {
-  window.localStorage.setItem("sdet-retail-pos-outbox", JSON.stringify(items));
-}
-
-function mapApiCartItem(item) {
-  const catalogProduct = products.find((candidate) => candidate.id === item.productId);
-  const product = { ...catalogProduct, ...item.product };
-
-  return {
-    id: item.id,
-    productId: item.productId,
-    slug: product.slug || slugify(product.name || "product"),
-    name: product?.name || "Product",
-    sku: product.sku || `SKU-${item.productId}`,
-    brand: product.brand || "Retail Lab",
-    price: product?.price || 0,
-    size: item.size || "Standard",
-    color: item.color || "Default",
-    quantity: item.quantity,
-    fulfilment: item.fulfilment || "Home delivery"
-  };
-}
-
-function mapApiOrder(order) {
-  const items = order.items?.map((item) => {
-    const catalogProduct = products.find((candidate) => candidate.id === item.productId);
-    const product = { ...catalogProduct, ...item.product };
-    return `${product.name || item.name || "Product"} x ${item.quantity || 1}`;
-  }) || [];
-
-  return {
-    id: order.orderNumber || `ORD-${order.id}`,
-    placedOn: order.placedOn,
-    status: order.status,
-    payment: order.payment,
-    total: order.total,
-    items,
-    channel: order.channel || "Web"
-  };
-}
-
-const promoFrameMarkup = `
-<!doctype html>
-<html lang="en">
-  <head>
-    <title>Retail promo signup</title>
-    <style>
-      body { margin: 0; font-family: Arial, sans-serif; color: #172033; }
-      form { display: grid; gap: 10px; padding: 14px; }
-      label { display: grid; gap: 6px; font-weight: 700; }
-      input { min-height: 36px; border: 1px solid #8f9bb0; border-radius: 4px; padding: 6px 8px; }
-      button { width: fit-content; min-height: 36px; border: 0; border-radius: 4px; background: #125e6b; color: white; padding: 0 12px; font-weight: 700; }
-      p { margin: 0; font-weight: 700; }
-    </style>
-  </head>
-  <body>
-    <form aria-label="Promo signup" onsubmit="event.preventDefault(); document.getElementById('promo-status').textContent='Thanks for subscribing';">
-      <label>Email <input name="email" type="email" maxlength="${inputLimits.email}" required /></label>
-      <button type="submit">Subscribe</button>
-      <p id="promo-status" role="status"></p>
-    </form>
-</body>
-</html>`;
-
-const shippingFrameMarkup = `
-<!doctype html>
-<html lang="en">
-  <head>
-    <title>Shipping estimate widget</title>
-    <style>
-      body { margin: 0; font-family: Arial, sans-serif; color: #172033; background: #ffffff; }
-      main { display: grid; gap: 14px; padding: 18px; }
-      h1 { margin: 0; font-size: 1.25rem; }
-      p { margin: 0; color: #40506a; line-height: 1.5; }
-      form { display: grid; gap: 12px; }
-      label { display: grid; gap: 6px; font-weight: 700; }
-      input, select { min-height: 38px; border: 1px solid #8f9bb0; border-radius: 4px; padding: 6px 8px; font: inherit; }
-      button { width: fit-content; min-height: 38px; border: 0; border-radius: 4px; background: #125e6b; color: white; padding: 0 14px; font-weight: 700; }
-      [role="status"] { min-height: 22px; font-weight: 700; color: #0f5360; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Shipping Partner Widget</h1>
-      <p>This content is isolated inside an iframe to practice frame-specific locators.</p>
-      <form aria-label="Shipping estimate" onsubmit="event.preventDefault(); document.getElementById('estimate-status').textContent='Estimate ready: delivery by Friday';">
-        <label>Order ID <input name="orderId" value="ORD-1007" maxlength="${inputLimits.orderId}" required /></label>
-        <label>Destination
-          <select name="destination">
-            <option>Bengaluru</option>
-            <option>Chennai</option>
-            <option>Hyderabad</option>
-          </select>
-        </label>
-        <button type="submit">Get estimate</button>
-        <p id="estimate-status" role="status"></p>
-      </form>
-    </main>
-  </body>
-</html>`;
-
-const dayOneChecks = [
-  "Validate browser title",
-  "Validate current URL",
-  "Assert visible heading",
-  "Capture a full-page screenshot",
-  "Discuss accessible page structure"
-];
-
-function readStoredUser() {
-  try {
-    const stored = window.sessionStorage.getItem("sdet-retail-user");
-    return stored ? JSON.parse(stored) : null;
+    return JSON.parse(sessionStorage.getItem("shopkart.session")) || null;
   } catch {
     return null;
   }
 }
 
-function App() {
-  const [currentPath, setCurrentPath] = useState(
-    window.location.pathname === "/" ? "/home" : window.location.pathname
-  );
-  const [currentUser, setCurrentUser] = useState(readStoredUser);
-  const [cartItems, setCartItems] = useState([]);
-  const [cartStatus, setCartStatus] = useState(() =>
-    window.location.pathname === "/cart" || window.location.pathname === "/checkout" ? "loading" : "idle"
-  );
-  const [createdOrders, setCreatedOrders] = useState([]);
-  const [cartSessionId] = useState(readCartSessionId);
-  const apiUser = currentUser || classroomCustomer;
-  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-  const allOrders = [...createdOrders, ...orders];
+function cartStorageKey(customerId) {
+  return `shopkart.cart.${customerId}`;
+}
 
-  const navigate = (path) => {
-    window.history.pushState({}, "", path);
-    setCurrentPath(path);
-  };
-
-  const loadCart = async () => {
-    setCartStatus("loading");
-    const response = await fetch(`${apiBaseUrl}/api/cart`, {
-      headers: {
-        Authorization: `Bearer ${apiUser.token}`,
-        "X-Cart-Session": cartSessionId
-      }
-    });
-
-    if (!response.ok) {
-      setCartStatus("error");
-      throw new Error("Cart API failed");
-    }
-
-    const body = await response.json();
-    const mappedItems = body.items.map(mapApiCartItem);
-    setCartItems(mappedItems);
-    setCartStatus("ready");
-    return mappedItems;
-  };
-
-  const clearCart = async () => {
-    const response = await fetch(`${apiBaseUrl}/api/cart`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${apiUser.token}`,
-        "X-Cart-Session": cartSessionId
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error("Cart API failed");
-    }
-
-    setCartItems([]);
-    setCartStatus("ready");
-  };
-
-  useEffect(() => {
-    const syncPathFromBrowserHistory = () => {
-      setCurrentPath(window.location.pathname === "/" ? "/home" : window.location.pathname);
-    };
-
-    window.addEventListener("popstate", syncPathFromBrowserHistory);
-    return () => window.removeEventListener("popstate", syncPathFromBrowserHistory);
-  }, []);
-
-  useEffect(() => {
-    const pageTitle = currentPath === "/catalog" || currentPath === "/products"
-      ? "Product Catalog"
-      : "SDET Retail Automation Lab";
-    document.title = `${pageTitle} | SDET Retail Automation Lab`;
-  }, [currentPath]);
-
-  useEffect(() => {
-    if (currentPath !== "/cart" && currentPath !== "/checkout") {
-      return;
-    }
-
-    let cancelled = false;
-
-    loadCart()
-      .then(() => {})
-      .catch(() => {
-        if (!cancelled) {
-          setCartItems([]);
-          setCartStatus("error");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiUser.token, cartSessionId, currentPath]);
-
-  const login = async ({ email, password }) => {
-    const response = await fetch(`${apiBaseUrl}/api/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      return {
-        ok: false,
-        message: body.message || "Invalid credentials. Check your email and password."
-      };
-    }
-
-    const body = await response.json();
-    const safeUser = {
-      email: body.user.email,
-      name: body.user.name,
-      role: body.user.role,
-      token: body.token
-    };
-    window.sessionStorage.setItem("sdet-retail-user", JSON.stringify(safeUser));
-    setCurrentUser(safeUser);
-    navigate("/home");
-    return { ok: true };
-  };
-
-  const logout = () => {
-    window.sessionStorage.removeItem("sdet-retail-user");
-    setCurrentUser(null);
-    navigate("/login");
-  };
-
+function AppShell({ session, onLogout, navigate, children }) {
   return (
     <div className="app-shell">
-      <Header
-        cartCount={cartCount}
-        currentPath={currentPath}
-        currentUser={currentUser}
-        onNavigate={navigate}
-      />
-
-      <main className="page" id="main-content">
-        {currentPath === "/login" ? (
-          <LoginPage onLogin={login} />
-        ) : currentPath === "/sync-lab" ? (
-          <SyncLabPage />
-        ) : currentPath === "/profile" ? (
-          <ProfilePage currentUser={currentUser} />
-        ) : currentPath === "/catalog" || currentPath === "/products" ? (
-          <CatalogPage onNavigate={navigate} />
-        ) : currentPath === "/frames-lab" ? (
-          <FramesLabPage />
-        ) : currentPath === "/a11y-lab" ? (
-          <AccessibilityLabPage />
-        ) : currentPath === "/debug-lab" ? (
-          <DebugLabPage />
-        ) : currentPath === "/pos" ? (
-          <PosOfflineLabPage currentUser={apiUser} />
-        ) : currentPath === "/returns" ? (
-          <ReturnsRefundPage currentUser={apiUser} />
-        ) : currentPath.startsWith("/product/") ? (
-          <ProductPage
-            product={findProduct(currentPath.replace("/product/", ""))}
-            onAddToCart={async (item) => {
-              const response = await fetch(`${apiBaseUrl}/api/cart/items`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${apiUser.token}`,
-                  "Content-Type": "application/json",
-                  "X-Cart-Session": cartSessionId
-                },
-                body: JSON.stringify({
-                  productId: item.productId,
-                  quantity: item.quantity,
-                  size: item.size,
-                  color: item.color,
-                  fulfilment: item.fulfilment
-                })
-              });
-
-              if (!response.ok) {
-                throw new Error("Cart API failed");
-              }
-
-              navigate("/cart");
-            }}
-          />
-        ) : currentPath === "/cart" ? (
-          <CartPage
-            cartCount={cartCount}
-            cartStatus={cartStatus}
-            items={cartItems}
-            onNavigate={navigate}
-            onRemove={async (item) => {
-              if (item.id) {
-                await fetch(`${apiBaseUrl}/api/cart/items/${item.id}`, {
-                  method: "DELETE",
-                  headers: {
-                    Authorization: `Bearer ${apiUser.token}`,
-                    "X-Cart-Session": cartSessionId
-                  }
-                });
-              }
-              setCartItems((existingItems) =>
-                existingItems.filter((cartItem) => cartItem.id !== item.id)
-              );
-            }}
-            onClearCart={clearCart}
-          />
-        ) : currentPath === "/checkout" ? (
-          <CheckoutPage
-            cartStatus={cartStatus}
-            currentUser={apiUser}
-            items={cartItems}
-            onNavigate={navigate}
-            onPlaceOrder={async (orderRequest) => {
-              const response = await fetch(`${apiBaseUrl}/api/orders`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${apiUser.token}`,
-                  "Content-Type": "application/json",
-                  "X-Cart-Session": cartSessionId
-                },
-                body: JSON.stringify(orderRequest)
-              });
-
-              if (!response.ok) {
-                throw new Error("Order API failed");
-              }
-
-              const apiOrder = await response.json();
-              setCreatedOrders((existingOrders) => [mapApiOrder(apiOrder), ...existingOrders]);
-              setCartItems([]);
-              return mapApiOrder(apiOrder);
-            }}
-          />
-        ) : currentPath === "/size-guide" ? (
-          <SizeGuidePage />
-        ) : currentPath === "/orders" ? (
-          <OrdersPage ordersList={allOrders} apiUser={apiUser} cartSessionId={cartSessionId} />
-        ) : currentPath === "/api-docs" ? (
-          <ApiDocsPage />
-        ) : currentPath === "/admin/products" ? (
-          <AdminProductsPage />
-        ) : currentPath === "/admin/orders" ? (
-          <AdminOrdersPage ordersList={allOrders} />
-        ) : (
-          <HomePage currentUser={currentUser} onLogout={logout} />
-        )}
-      </main>
-    </div>
-  );
-}
-
-function Header({ cartCount, currentPath, currentUser, onNavigate }) {
-  return (
-    <header className="top-bar">
-      <a
-        className="brand"
-        href="/home"
-        aria-label="SDET Retail Automation Lab home"
-        onClick={(event) => {
-          event.preventDefault();
-          onNavigate("/home");
-        }}
-      >
-        <span className="brand-mark" aria-hidden="true">SR</span>
-        <span>
-          <span className="brand-title">SDET Retail Automation Lab</span>
-          <span className="brand-subtitle">UST Global training app</span>
-        </span>
-      </a>
-
-      <nav className="main-nav" aria-label="Primary navigation">
-        {navItems.map((item) => (
-          <a
-            key={item.href}
-            data-test={item.href === "/cart" ? "cart-icon" : undefined}
-            href={item.href}
-            aria-current={currentPath === item.href ? "page" : undefined}
-            onClick={(event) => {
-              event.preventDefault();
-              onNavigate(item.href);
-            }}
-          >
-            {item.label}
-            {item.href === "/cart" ? (
-              <span className="nav-badge" data-test="cart-count" data-testid="header-cart-count">
-                {cartCount}
-              </span>
-            ) : null}
-          </a>
-        ))}
-      </nav>
-
-      {currentUser ? (
-        <div className="user-chip" aria-label="Signed in user">
-          <span>{currentUser.name}</span>
-        </div>
-      ) : null}
-    </header>
-  );
-}
-
-function HomePage({ currentUser, onLogout }) {
-  const dayState = currentUser ? `Signed in as ${currentUser.role}` : "Ready for launch validation";
-
-  return (
-    <>
-      <section className="hero" aria-labelledby="page-title">
-        <div className="hero-copy">
-          <p className="eyebrow">{currentUser ? "Logged-in state" : "Day 1 launch target"}</p>
-          <h1 id="page-title">
-            {currentUser ? `Welcome, ${currentUser.name}` : "SDET Retail Automation Lab"}
-          </h1>
-          <p className="lead">
-            A controlled retail application for learning UI automation, API validation,
-            service virtualisation, contract testing, and debugging.
-          </p>
-          <div className="hero-actions" aria-label="Primary actions">
-            {currentUser ? (
-              <button className="button primary" type="button" onClick={onLogout}>
-                Sign out
-              </button>
-            ) : (
-              <a className="button primary" href="/login">Sign in</a>
-            )}
-            <a className="button secondary" href="/catalog">Preview products</a>
-            <a className="button secondary" href="/sync-lab">Open sync lab</a>
-          </div>
-        </div>
-
-        <div className="status-panel command-panel" aria-label="Application readiness summary">
-          <div className="command-header">
-            <span className="status-label">Retail command center</span>
-            <strong>{dayState}</strong>
-          </div>
-          <div className="command-grid">
-            <div>
-              <span className="status-label">Environment</span>
-              <strong>Classroom local</strong>
-            </div>
-            <div>
-              <span className="status-label">Frontend</span>
-              <strong>ReactJS + Vite</strong>
-            </div>
-            <div>
-              <span className="status-label">API mode</span>
-              <strong>POS backed</strong>
-            </div>
-          </div>
-          <ol className="signal-rail" aria-label="Current release flow">
-            <li>Catalog search</li>
-            <li>Cart API</li>
-            <li>Checkout gate</li>
-            <li>Order review</li>
-          </ol>
-        </div>
-      </section>
-
-      <section className="content-grid" aria-label="Day 1 training dashboard">
-        <article className="panel">
-          <h2>Automation Checks</h2>
-          <ul className="check-list">
-            {dayOneChecks.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="panel">
-          <h2>Application Modules</h2>
-          <div className="module-list">
-            {navItems.map((item) => (
-              <a className="module-row" href={item.href} key={item.href}>
-                <span>{item.label}</span>
-                <span>{item.status}</span>
-              </a>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="metric-strip wide" aria-label="Retail operations snapshot">
-        {operationMetrics.map((metric) => (
-          <div key={metric.label}>
-            <span className="status-label">{metric.label}</span>
-            <strong>{metric.value}</strong>
-            <p>{metric.detail}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className="experience-strip" aria-label="Training experience highlights">
-        {experienceHighlights.map((item) => (
-          <article key={item.label}>
-            <span className="status-label">{item.label}</span>
-            <strong>{item.value}</strong>
-            <p>{item.detail}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="content-grid" aria-label="Service readiness">
-        <article className="panel">
-          <h2>Fulfilment Signals</h2>
-          <div className="module-list">
-            {fulfilmentSignals.map((signal) => (
-              <div className="module-row compact-row" key={signal.label}>
-                <span>{signal.label}</span>
-                <span>{signal.value}</span>
-                <small>{signal.detail}</small>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <h2>Capstone Flow</h2>
-          <ol className="numbered-list">
-            <li>Search product and validate product metadata.</li>
-            <li>Add to cart through the POS API.</li>
-            <li>Checkout and create an order through the API.</li>
-            <li>Review order history and evidence.</li>
-          </ol>
-        </article>
-      </section>
-
-      <section className="workflow-band" aria-label="Retail workflow map">
-        {retailWorkflows.map((workflow, index) => (
-          <article key={workflow.title}>
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <h2>{workflow.title}</h2>
-            <p>{workflow.detail}</p>
-          </article>
-        ))}
-      </section>
-    </>
-  );
-}
-
-function CatalogPage({ onNavigate }) {
-  const [category, setCategory] = useState("All");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [submittedSearch, setSubmittedSearch] = useState("");
-  const [sortBy, setSortBy] = useState("Recommended");
-  const [pageNumber, setPageNumber] = useState(1);
-  const [apiProductIds, setApiProductIds] = useState(products.map((product) => product.id));
-  const [searchStatus, setSearchStatus] = useState("ready");
-  const categories = ["All", ...new Set(products.map((product) => product.category))];
-  const pageSize = 3;
-
-  const visibleProducts = products
-    .filter((product) => apiProductIds.includes(product.id))
-    .filter((product) => category === "All" || product.category === category)
-    .filter((product) => productMatchesSearch(product, submittedSearch))
-    .sort((first, second) => {
-      if (sortBy === "Price: low to high") {
-        return first.price - second.price;
-      }
-      if (sortBy === "Rating") {
-        return second.rating - first.rating;
-      }
-      return products.indexOf(first) - products.indexOf(second);
-    });
-  const totalPages = Math.max(1, Math.ceil(visibleProducts.length / pageSize));
-  const safePageNumber = Math.min(pageNumber, totalPages);
-  const pagedProducts = visibleProducts.slice(
-    (safePageNumber - 1) * pageSize,
-    safePageNumber * pageSize
-  );
-  const lowStockCount = visibleProducts.filter((product) => product.stock <= 10).length;
-  const averageRating = visibleProducts.length
-    ? (
-        visibleProducts.reduce((total, product) => total + product.rating, 0) / visibleProducts.length
-      ).toFixed(1)
-    : "0.0";
-  const resultLabel = visibleProducts.length === 1 ? "product" : "products";
-
-  useEffect(() => {
-    setPageNumber(1);
-  }, [category, submittedSearch, sortBy]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const query = new URLSearchParams();
-
-    if (submittedSearch) {
-      query.set("search", submittedSearch);
-    }
-
-    if (category !== "All") {
-      query.set("category", category);
-    }
-
-    setSearchStatus("loading");
-    fetch(`${apiBaseUrl}/api/products?${query.toString()}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Product search failed");
-        }
-        return response.json();
-      })
-      .then((body) => {
-        if (!cancelled) {
-          setApiProductIds(body.items.map((product) => product.id));
-          setSearchStatus("ready");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setApiProductIds([]);
-          setSearchStatus("error");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [category, submittedSearch]);
-
-  const submitSearch = (event) => {
-    event.preventDefault();
-    setSubmittedSearch(limitText(searchTerm.trim(), inputLimits.search));
-  };
-
-  return (
-    <section className="catalog-page" aria-labelledby="catalog-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Day 4 navigation lab</p>
-        <h1 id="catalog-title" data-test="catalog-title">Product Catalog</h1>
-        <p className="lead">
-          Practice realistic retail navigation with filters, sorting, product cards, and page
-          transition assertions.
-        </p>
-      </div>
-
-      <form className="catalog-filters" aria-label="Product filters" onSubmit={submitSearch}>
-        <label className="field" htmlFor="search-products">
-          <span>Search products</span>
-          <input
-            data-test="search-input"
-            id="search-products"
-            type="search"
-            value={searchTerm}
-            maxLength={inputLimits.search}
-            onChange={(event) => setSearchTerm(limitText(event.target.value, inputLimits.search))}
-            placeholder="Search name, category, brand, SKU, or tag"
-          />
-        </label>
-
-        <button className="button primary filter-submit" data-test="search-button" type="submit">
-          Search
+      <header className="top-bar">
+        <button className="brand" type="button" onClick={() => navigate("/")} aria-label="ShopKart home">
+          <span className="brand-mark"><ShoppingBag size={22} aria-hidden="true" /></span>
+          <span>
+            <strong>ShopKart</strong>
+            <small>Capstone retail lab</small>
+          </span>
         </button>
-
-        <label className="field" htmlFor="category-filter">
-          <span>Category</span>
-          <select
-            id="category-filter"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            {categories.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field" htmlFor="sort-products">
-          <span>Sort by</span>
-          <select
-            data-test="sort-select"
-            id="sort-products"
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value)}
-          >
-            <option>Recommended</option>
-            <option value="Price: low to high">Price: Low to High</option>
-            <option>Rating</option>
-          </select>
-        </label>
-      </form>
-
-      <div className="catalog-toolbar">
-        <p
-          className="inline-status"
-          role="status"
-          data-test="catalog-result-count"
-          data-testid="catalog-result-count"
-        >
-          {searchStatus === "loading" ? "Searching products..." : `Showing ${visibleProducts.length} ${resultLabel}`}
-        </p>
-        <span>Search is API-backed. Sorting and pagination stay client-side for UI practice.</span>
-      </div>
-
-      {searchStatus === "error" ? (
-        <div className="alert" role="alert">Product search failed. Check the POS API.</div>
-      ) : null}
-
-      <section className="metric-strip" aria-label="Catalog inventory signals">
-        <div>
-          <span className="status-label">Categories</span>
-          <strong>{categories.length - 1}</strong>
-        </div>
-        <div>
-          <span className="status-label">Low stock</span>
-          <strong>{lowStockCount}</strong>
-        </div>
-        <div>
-          <span className="status-label">Average rating</span>
-          <strong>{averageRating}</strong>
-        </div>
-      </section>
-
-      <div className="product-grid" aria-label="Product results">
-        {pagedProducts.map((product) => (
-          <article
-            className="product-card"
-            aria-label={product.name}
-            data-test="product-card"
-            data-testid="product-card"
-            key={product.slug}
-          >
-            <div className={`product-visual ${product.imageTone}`} aria-hidden="true">
-              <span>{product.category}</span>
-              <strong>{product.brand}</strong>
-            </div>
-            <div>
-              <p className="eyebrow">{product.category}</p>
-              <h2 data-test="product-title">{product.name}</h2>
-              <p className="table-note">{product.brand} · {product.sku}</p>
-              <p>{product.summary}</p>
-              <div className="tag-row" aria-label={`${product.name} tags`}>
-                {product.tags.slice(0, 3).map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
-              </div>
-              <dl className="product-meta">
-                <div>
-                  <dt>Price</dt>
-                  <dd data-test="product-price">{formatPrice(product.price)}</dd>
-                </div>
-                <div>
-                  <dt>Rating</dt>
-                  <dd>{product.rating}</dd>
-                </div>
-                <div>
-                  <dt>Stock</dt>
-                  <dd>{product.stock} · {product.warehouse}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="card-footer">
-              <span>{product.delivery}</span>
-              <span>{product.returnWindow}</span>
-              <span className="quick-view" data-test="quick-view">Quick view ready</span>
-            </div>
-            <a
-              className="button primary"
-              href={`/product/${product.slug}`}
-              onClick={(event) => {
-                event.preventDefault();
-                onNavigate(`/product/${product.slug}`);
-              }}
-            >
-              View {product.name}
-            </a>
-          </article>
-        ))}
-      </div>
-
-      {searchStatus === "ready" && visibleProducts.length === 0 ? (
-        <section className="panel" data-test="empty-search" data-testid="empty-search" role="status">
-          <h2>No products found</h2>
-          <p>Try a different search term or category.</p>
-        </section>
-      ) : null}
-
-      <nav className="pagination-bar" aria-label="Catalog pagination">
-        <button
-          className="button secondary"
-          type="button"
-          disabled={safePageNumber === 1}
-          onClick={() => setPageNumber((current) => Math.max(1, current - 1))}
-        >
-          Previous page
-        </button>
-        <span data-testid="catalog-page-status">
-          Page {safePageNumber} of {totalPages}
-        </span>
-        <button
-          className="button secondary"
-          type="button"
-          disabled={safePageNumber === totalPages}
-          onClick={() => setPageNumber((current) => Math.min(totalPages, current + 1))}
-        >
-          Next page
-        </button>
-      </nav>
-    </section>
-  );
-}
-
-function FramesLabPage() {
-  return (
-    <section className="frames-page" aria-labelledby="frames-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Day 4 iframe lab</p>
-        <h1 id="frames-title">Frames Lab</h1>
-        <p className="lead">
-          Practice switching from the main page into an embedded shipping partner widget. The
-          controls below are not in the parent document.
-        </p>
-      </div>
-
-      <div className="frame-lab-layout">
-        <section className="panel" aria-labelledby="parent-context-title">
-          <h2 id="parent-context-title">Parent Page Context</h2>
-          <dl className="product-meta">
-            <div>
-              <dt>Order</dt>
-              <dd>ORD-1007</dd>
-            </div>
-            <div>
-              <dt>Carrier</dt>
-              <dd>UST Express</dd>
-            </div>
-            <div>
-              <dt>Widget source</dt>
-              <dd>Embedded iframe</dd>
-            </div>
-          </dl>
-          <p>
-            Parent-page locators cannot directly see the form fields inside the frame. Use
-            `frameLocator()` for the shipping estimate form.
-          </p>
-        </section>
-
-        <section className="panel" aria-labelledby="shipping-frame-title">
-          <h2 id="shipping-frame-title">Embedded Shipping Widget</h2>
-          <iframe
-            className="exercise-frame"
-            title="Shipping estimate frame"
-            srcDoc={shippingFrameMarkup}
-          />
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function AccessibilityLabPage() {
-  return (
-    <section className="a11y-lab-page" aria-labelledby="a11y-lab-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Day 4 accessibility lab</p>
-        <h1 id="a11y-lab-title">A11y Lab</h1>
-        <p className="lead">
-          This page intentionally includes accessibility defects so trainees can run Axe, inspect
-          rule IDs, and trace a violation back to the DOM.
-        </p>
-      </div>
-
-      <div className="a11y-lab-layout">
-        <section className="panel" aria-labelledby="broken-widget-title">
-          <h2 id="broken-widget-title">Broken Support Widget</h2>
-          <p>
-            The ticket input below has no accessible label. The image also has no alternative text.
-          </p>
-          <div className="broken-support-card">
-            <img
-              className="support-preview"
-              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Crect width='240' height='120' fill='%23dbeafe'/%3E%3Ccircle cx='64' cy='58' r='24' fill='%23125e6b'/%3E%3Crect x='104' y='42' width='92' height='16' fill='%23172033'/%3E%3Crect x='104' y='68' width='64' height='12' fill='%2340506a'/%3E%3C/svg%3E"
-            />
-            <input
-              id="support-ticket"
-              maxLength={inputLimits.supportTicket}
-              placeholder="Enter support ticket ID"
-            />
-            <button className="icon-only-broken-button" type="button"></button>
-            <button className="button primary" type="button">
-              Lookup ticket
-            </button>
-          </div>
-        </section>
-
-        <section className="panel" aria-labelledby="a11y-backtrack-title">
-          <h2 id="a11y-backtrack-title">Backtracking Clues</h2>
-          <dl className="product-meta">
-            <div>
-              <dt>Expected Axe rule</dt>
-              <dd>button-name</dd>
-            </div>
-            <div>
-              <dt>Likely target</dt>
-              <dd>.icon-only-broken-button</dd>
-            </div>
-            <div>
-              <dt>Expected Axe rule</dt>
-              <dd>image-alt</dd>
-            </div>
-          </dl>
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function DebugLabPage() {
-  const [status, setStatus] = useState("idle");
-  const [cartTotal, setCartTotal] = useState(null);
-  const [lastError, setLastError] = useState("");
-
-  const refreshCartTotal = async () => {
-    setStatus("loading");
-    setCartTotal(null);
-    setLastError("");
-    console.info("debug-lab: cart total request started");
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/debug/cart-total?delay=650`);
-      if (!response.ok) {
-        throw new Error(`Cart total failed with ${response.status}`);
-      }
-
-      const body = await response.json();
-      console.info(`debug-lab: cart total ready ${body.total}`);
-      setCartTotal(body);
-      setStatus("ready");
-    } catch (error) {
-      console.error("debug-lab: cart total failed", error);
-      setLastError("Cart total service failed.");
-      setStatus("error");
-    }
-  };
-
-  return (
-    <section className="debug-page" aria-labelledby="debug-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Day 5 debugging lab</p>
-        <h1 id="debug-title">Debug Lab</h1>
-        <p className="lead">
-          Use this page to reproduce a timing-sensitive cart-total flow, capture traces, inspect
-          console logs, and stabilise the test by waiting for the real network signal.
-        </p>
-        <button className="button primary" type="button" onClick={refreshCartTotal}>
-          Refresh cart total
-        </button>
-      </div>
-
-      <div className="debug-layout">
-        <section className="panel" aria-labelledby="debug-status-title">
-          <h2 id="debug-status-title">Runtime Signals</h2>
-          <dl className="product-meta">
-            <div>
-              <dt>Status</dt>
-              <dd data-testid="debug-status">{status}</dd>
-            </div>
-            <div>
-              <dt>API</dt>
-              <dd>/api/debug/cart-total</dd>
-            </div>
-            <div>
-              <dt>Trace clue</dt>
-              <dd>Wait for response before asserting total</dd>
-            </div>
-          </dl>
-          {status === "loading" ? (
-            <p className="spinner" role="status" data-testid="debug-spinner">
-              Waiting for cart total...
-            </p>
-          ) : null}
-          {lastError ? <div className="alert" role="alert">{lastError}</div> : null}
-        </section>
-
-        <section className="panel" aria-labelledby="debug-summary-title">
-          <h2 id="debug-summary-title">Cart Total Summary</h2>
-          {cartTotal ? (
+        <nav aria-label="Primary navigation">
+          <button type="button" onClick={() => navigate("/")}>Catalog</button>
+          {session ? (
             <>
-              <table>
-                <caption>Debug cart line items</caption>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Qty</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cartTotal.items.map((item) => (
-                    <tr key={item.name}>
-                      <td>{item.name}</td>
-                      <td>{item.quantity}</td>
-                      <td>{formatPrice(item.lineTotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <dl className="order-summary" aria-label="Debug totals">
-                <div>
-                  <dt>Subtotal</dt>
-                  <dd>{formatPrice(cartTotal.subtotal)}</dd>
-                </div>
-                <div>
-                  <dt>Shipping</dt>
-                  <dd>{formatPrice(cartTotal.shipping)}</dd>
-                </div>
-                <div>
-                  <dt>Total</dt>
-                  <dd data-testid="debug-cart-total">{formatPrice(cartTotal.total)}</dd>
-                </div>
-              </dl>
+              <button type="button" onClick={() => navigate("/cart")}>
+                <ShoppingCart size={17} aria-hidden="true" /> Cart
+              </button>
+              <a href="/api-docs" target="_blank" rel="noreferrer">API docs</a>
+              <span className="signed-in">{session.customer.displayName}</span>
+              <button type="button" onClick={onLogout} aria-label="Sign out">
+                <LogOut size={17} aria-hidden="true" /> Sign out
+              </button>
             </>
           ) : (
-            <p role="status">No cart total loaded yet.</p>
+            <button type="button" onClick={() => navigate("/login")}>
+              <LogIn size={17} aria-hidden="true" /> Sign in
+            </button>
           )}
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function ProductPage({ product, onAddToCart }) {
-  const [size, setSize] = useState(product.sizes[0]);
-  const [color, setColor] = useState(product.colors[0]);
-  const [quantity, setQuantity] = useState(1);
-  const [fulfilment, setFulfilment] = useState("Home delivery");
-  const [addStatus, setAddStatus] = useState("idle");
-  const [addError, setAddError] = useState("");
-  const relatedProducts = products
-    .filter((item) => item.category === product.category && item.slug !== product.slug)
-    .slice(0, 2);
-
-  const addSelectedItemToCart = async () => {
-    setAddStatus("loading");
-    setAddError("");
-
-    try {
-      await onAddToCart({
-        productId: product.id,
-        slug: product.slug,
-        name: product.name,
-        price: product.price,
-        size,
-        color,
-        quantity,
-        fulfilment
-      });
-    } catch {
-      setAddStatus("error");
-      setAddError("Unable to add this item. Check stock and try again.");
-    }
-  };
-
-  return (
-    <section className="product-layout" aria-labelledby="product-title">
-      <div className="product-detail">
-        <div className={`product-hero-visual ${product.imageTone}`} aria-hidden="true">
-          <span>{product.sku}</span>
-          <strong>{product.brand}</strong>
-        </div>
-        <p className="eyebrow">{product.category}</p>
-        <h1 id="product-title" data-test="detail-name">{product.name}</h1>
-        <p className="lead">{product.summary}</p>
-        <p className="price">{formatPrice(product.price)}</p>
-        <div className="tag-row" aria-label="Product tags">
-          {product.tags.map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
-        </div>
-
-        <dl className="product-meta">
-          <div>
-            <dt>SKU</dt>
-            <dd>{product.sku}</dd>
-          </div>
-          <div>
-            <dt>Brand</dt>
-            <dd>{product.brand}</dd>
-          </div>
-          <div>
-            <dt>Rating</dt>
-            <dd>{product.rating} out of 5</dd>
-          </div>
-          <div>
-            <dt>Availability</dt>
-            <dd data-testid="availability-badge">
-              {product.stock > 0 ? "In stock" : "Out of stock"}
-            </dd>
-          </div>
-          <div>
-            <dt>Delivery</dt>
-            <dd>{product.delivery}</dd>
-          </div>
-          <div>
-            <dt>Return</dt>
-            <dd>{product.returnWindow}</dd>
-          </div>
-          <div>
-            <dt>Warranty</dt>
-            <dd>{product.warranty}</dd>
-          </div>
-        </dl>
-
-        <label className="field" htmlFor="shoe-size">
-          <span>Size</span>
-          <select id="shoe-size" value={size} onChange={(event) => setSize(event.target.value)}>
-            {product.sizes.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-
-        <fieldset className="option-group">
-          <legend>Color</legend>
-          {product.colors.map((item) => (
-            <label key={item}>
-              <input
-                checked={color === item}
-                name="color"
-                type="radio"
-                value={item}
-                onChange={(event) => setColor(event.target.value)}
-              />
-              <span>{item}</span>
-            </label>
-          ))}
-        </fieldset>
-
-        <label className="field" htmlFor="quantity">
-          <span>Quantity</span>
-          <input
-            id="quantity"
-            min={inputLimits.quantity.min}
-            max={inputLimits.quantity.max}
-            step="1"
-            type="number"
-            value={quantity}
-            onChange={(event) => setQuantity(limitInteger(event.target.value, inputLimits.quantity))}
-          />
-        </label>
-
-        <fieldset className="option-group">
-          <legend>Fulfilment</legend>
-          {["Home delivery", "Store pickup"].map((item) => (
-            <label key={item}>
-              <input
-                checked={fulfilment === item}
-                name="fulfilment"
-                type="radio"
-                value={item}
-                onChange={(event) => setFulfilment(event.target.value)}
-              />
-              <span>{item}</span>
-            </label>
-          ))}
-        </fieldset>
-
-        <div className="product-actions">
-          <button
-            className="button primary"
-            data-test="add-to-cart"
-            type="button"
-            disabled={addStatus === "loading"}
-            onClick={addSelectedItemToCart}
-          >
-            {addStatus === "loading" ? "Adding..." : "Add to cart"}
-          </button>
-          <a className="button secondary" href="/size-guide" target="_blank" rel="noreferrer">
-            Size guide
-          </a>
-        </div>
-
-        <p className="inline-status" role="status">
-          Selected {product.name}: {color}, {size}, quantity {quantity}, {fulfilment}
-        </p>
-        {addError ? <div className="alert" role="alert">{addError}</div> : null}
-        <section className="mini-panel" aria-label="Product quality signals">
-          <strong>Quality signals</strong>
-          <span>Stock validated</span>
-          <span>Max 5 per line</span>
-          <span>Cart API backed</span>
-        </section>
-      </div>
-
-      <div className="side-stack">
-        <section className="panel" aria-labelledby="highlights-title">
-          <h2 id="highlights-title">Product Highlights</h2>
-          <ul className="detail-list">
-            {product.highlights.map((highlight) => (
-              <li key={highlight}>{highlight}</li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="panel" aria-labelledby="specs-title">
-          <h2 id="specs-title">Specifications</h2>
-          <dl className="product-meta">
-            {Object.entries(product.specs).map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-            <div>
-              <dt>Warehouse</dt>
-              <dd>{product.warehouse}</dd>
-            </div>
-            <div>
-              <dt>Reorder level</dt>
-              <dd>{product.reorderLevel}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="panel" aria-labelledby="promo-title">
-          <h2 id="promo-title">Promo Signup</h2>
-          <iframe
-            className="promo-frame"
-            title="Promo signup frame"
-            srcDoc={promoFrameMarkup}
-          />
-        </section>
-
-        <section className="panel" aria-labelledby="related-title">
-          <h2 id="related-title">Related Products</h2>
-          {relatedProducts.length ? (
-            <ul className="related-list">
-              {relatedProducts.map((item) => (
-                <li key={item.slug}>
-                  <a href={`/product/${item.slug}`}>{item.name}</a>
-                  <span>{formatPrice(item.price)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No related products in this category.</p>
-          )}
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function CartPage({ cartCount, cartStatus, items, onNavigate, onRemove, onClearCart }) {
-  const [shippingMethod, setShippingMethod] = useState("Standard shipping");
-  const shippingCost = shippingMethod === "Express shipping" && items.length ? 199 : 0;
-  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
-  const removeItem = (item) => {
-    if (window.confirm(`Remove ${item.name} from cart?`)) {
-      onRemove(item);
-    }
-  };
-
-  return (
-    <section className="cart-layout" data-test="cart-page" aria-labelledby="cart-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Dialog validation lab</p>
-        <h1 id="cart-title">Cart</h1>
-        <p className="lead">
-          This page now reads the cart from the POS API after add-to-cart and deletes line items
-          through the same service.
-        </p>
-        <p>
-          Cart count: <strong data-test="cart-count" data-testid="cart-count">{cartCount}</strong>
-        </p>
-
-        {cartStatus === "loading" ? (
-          <p className="spinner" role="status">Loading cart...</p>
-        ) : null}
-
-        {cartStatus === "error" ? (
-          <div className="alert" role="alert">Cart could not be loaded. Check the POS API.</div>
-        ) : null}
-
-        {cartStatus !== "loading" && items.length > 0 ? (
-          <>
-            <div className="cart-items" aria-label="Cart items">
-              {items.map((item) => (
-                <div className="cart-row" data-test="cart-line" key={item.id}>
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.sku}</small>
-                  </span>
-                  <span>{item.color}</span>
-                  <span>{item.size}</span>
-                  <span>Qty {item.quantity}</span>
-                  <span>{formatPrice(item.price * item.quantity)}</span>
-                  <button className="button secondary" type="button" onClick={() => removeItem(item)}>
-                    Remove {item.name}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <label className="field" htmlFor="shipping-method">
-              <span>Shipping method</span>
-              <select
-                id="shipping-method"
-                value={shippingMethod}
-                onChange={(event) => setShippingMethod(event.target.value)}
-              >
-                <option>Standard shipping</option>
-                <option>Express shipping</option>
-              </select>
-            </label>
-
-            <dl className="order-summary" aria-label="Order summary">
-              <div>
-                <dt>Subtotal</dt>
-                <dd>{formatPrice(subtotal)}</dd>
-              </div>
-              <div>
-                <dt>Shipping</dt>
-                <dd>{shippingCost ? formatPrice(shippingCost) : "Free"}</dd>
-              </div>
-              <div>
-                <dt>Total</dt>
-                <dd data-test="cart-total" data-testid="order-total">{formatPrice(subtotal + shippingCost)}</dd>
-              </div>
-            </dl>
-
-            <section className="mini-panel" aria-label="Cart API evidence">
-              <strong>API evidence</strong>
-              <span>POST /api/cart/items</span>
-              <span>GET /api/cart</span>
-              <span>DELETE /api/cart</span>
-              <span>DELETE /api/cart/items/:id</span>
-            </section>
-
-            <button
-              className="button primary"
-              data-test="checkout-button"
-              type="button"
-              onClick={() => onNavigate("/checkout")}
-            >
-              Proceed to checkout
-            </button>
-            <button className="button secondary" type="button" onClick={onClearCart}>
-              Start fresh cart
-            </button>
-            <section className="mini-panel" aria-label="Checkout readiness">
-              <strong>Checkout readiness</strong>
-              <span>Items verified</span>
-              <span>Totals recalculated</span>
-              <span>Session isolated</span>
-            </section>
-          </>
-        ) : null}
-
-        {cartStatus !== "loading" && items.length === 0 ? (
-          <>
-            <p role="status">Your cart is empty.</p>
-            <button className="button secondary" type="button" onClick={() => onNavigate("/catalog")}>
-              Continue shopping
-            </button>
-          </>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function CheckoutPage({ cartStatus, currentUser, items, onNavigate, onPlaceOrder }) {
-  const [paymentMethod, setPaymentMethod] = useState("Credit card");
-  const [deliverySlot, setDeliverySlot] = useState("Tomorrow 9 AM - 12 PM");
-  const [address, setAddress] = useState("UST Campus, Bengaluru");
-  const [coupon, setCoupon] = useState("");
-  const [confirmation, setConfirmation] = useState(null);
-  const [submitError, setSubmitError] = useState("");
-  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
-  const shipping = items.length ? 199 : 0;
-  const discount = coupon.trim().toUpperCase() === "UST10" ? Math.round(subtotal * 0.1) : 0;
-  const total = subtotal + shipping - discount;
-
-  const placeOrder = (event) => {
-    event.preventDefault();
-    setSubmitError("");
-    const safeAddress = limitText(address.trim(), inputLimits.address);
-    const safeCoupon = limitText(coupon.trim().toUpperCase(), inputLimits.coupon);
-    if (!safeAddress) {
-      setSubmitError("Delivery address is required.");
-      return;
-    }
-
-    onPlaceOrder({
-      paymentMethod,
-      deliverySlot,
-      address: safeAddress,
-      coupon: safeCoupon,
-      shipping,
-      discount
-    })
-      .then((order) => setConfirmation(order))
-      .catch(() => setSubmitError("Order service failed. Check the API and retry."));
-  };
-
-  return (
-    <section className="checkout-page" aria-labelledby="checkout-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Capstone checkout slice</p>
-        <h1 id="checkout-title">Checkout</h1>
-        <p className="lead">
-          Validate address, delivery slot, payment mode, coupon behavior, and final order
-          confirmation.
-        </p>
-      </div>
-
-      {confirmation ? (
-        <section
-          className="confirmation-panel"
-          data-test="order-confirmation"
-          aria-labelledby="confirmation-title"
-        >
-          <p className="eyebrow">Order created</p>
-          <h2 id="confirmation-title">Thank you for your order</h2>
-          <p>
-            Order <strong>{confirmation.id}</strong> is {confirmation.status.toLowerCase()}.
-          </p>
-          <button className="button primary" type="button" onClick={() => onNavigate("/orders")}>
-            View orders
-          </button>
-        </section>
-      ) : null}
-
-      {submitError ? <div className="alert" role="alert">{submitError}</div> : null}
-
-      {!confirmation && cartStatus === "loading" ? (
-        <section className="panel" aria-labelledby="loading-checkout-title">
-          <h2 id="loading-checkout-title">Loading checkout</h2>
-          <p className="spinner" role="status">Loading cart...</p>
-        </section>
-      ) : null}
-
-      {!confirmation && cartStatus === "error" ? (
-        <div className="alert" role="alert">Checkout could not load the current cart.</div>
-      ) : null}
-
-      {!confirmation && cartStatus !== "loading" && items.length === 0 ? (
-        <section className="panel" aria-labelledby="empty-checkout-title">
-          <h2 id="empty-checkout-title">No items to checkout</h2>
-          <p role="status">Add a product to cart before placing an order.</p>
-          <button className="button secondary" type="button" onClick={() => onNavigate("/catalog")}>
-            Browse products
-          </button>
-        </section>
-      ) : null}
-
-      {!confirmation && cartStatus !== "loading" && items.length > 0 ? (
-        <form className="checkout-layout" aria-label="Checkout" onSubmit={placeOrder}>
-          <section className="panel" aria-labelledby="delivery-title">
-            <h2 id="delivery-title">Delivery Details</h2>
-            <label className="field" htmlFor="checkout-email">
-              <span>Email</span>
-              <input
-                id="checkout-email"
-                type="email"
-                value={currentUser?.email || "customer@example.com"}
-                readOnly
-              />
-            </label>
-            <label className="field" htmlFor="delivery-address">
-              <span>Delivery address</span>
-              <textarea
-                id="delivery-address"
-                value={address}
-                maxLength={inputLimits.address}
-                onChange={(event) => setAddress(limitText(event.target.value, inputLimits.address))}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="delivery-slot">
-              <span>Delivery slot</span>
-              <select
-                id="delivery-slot"
-                value={deliverySlot}
-                onChange={(event) => setDeliverySlot(event.target.value)}
-              >
-                <option>Tomorrow 9 AM - 12 PM</option>
-                <option>Tomorrow 2 PM - 5 PM</option>
-                <option>Weekend priority delivery</option>
-              </select>
-            </label>
-            <label className="field" htmlFor="payment-method">
-              <span>Payment method</span>
-              <select
-                id="payment-method"
-                value={paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value)}
-              >
-                <option>Credit card</option>
-                <option>UPI</option>
-                <option>Cash on delivery</option>
-              </select>
-            </label>
-          </section>
-
-          <section className="panel" aria-labelledby="checkout-summary-title">
-            <h2 id="checkout-summary-title">Checkout Summary</h2>
-            <div className="cart-items" aria-label="Checkout items">
-              {items.map((item) => (
-                <div className="summary-row" key={item.id}>
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.sku} · {item.color} · {item.size}</small>
-                  </span>
-                  <span>Qty {item.quantity}</span>
-                  <strong>{formatPrice(item.price * item.quantity)}</strong>
-                </div>
-              ))}
-            </div>
-            <label className="field" htmlFor="coupon-code">
-              <span>Coupon code</span>
-              <input
-                id="coupon-code"
-                value={coupon}
-                maxLength={inputLimits.coupon}
-                onChange={(event) => setCoupon(limitText(event.target.value.toUpperCase(), inputLimits.coupon))}
-                placeholder="Try UST10"
-              />
-            </label>
-            <dl className="order-summary" aria-label="Checkout totals">
-              <div>
-                <dt>Subtotal</dt>
-                <dd>{formatPrice(subtotal)}</dd>
-              </div>
-              <div>
-                <dt>Shipping</dt>
-                <dd>{formatPrice(shipping)}</dd>
-              </div>
-              <div>
-                <dt>Discount</dt>
-                <dd>{discount ? `-${formatPrice(discount)}` : "None"}</dd>
-              </div>
-              <div>
-                <dt>Total</dt>
-                <dd data-testid="checkout-total">{formatPrice(total)}</dd>
-              </div>
-            </dl>
-            <button className="button primary" data-test="place-order" type="submit">
-              Place order
-            </button>
-          </section>
-
-          <section className="panel" aria-labelledby="payment-readiness-title">
-            <h2 id="payment-readiness-title">Payment & Fulfilment Checks</h2>
-            <dl className="product-meta">
-              <div>
-                <dt>Payment route</dt>
-                <dd>{paymentMethod}</dd>
-              </div>
-              <div>
-                <dt>Tax mode</dt>
-                <dd>Included</dd>
-              </div>
-              <div>
-                <dt>Order API</dt>
-                <dd>POST /api/orders</dd>
-              </div>
-              <div>
-                <dt>Session scope</dt>
-                <dd>X-Cart-Session</dd>
-              </div>
-            </dl>
-          </section>
-        </form>
-      ) : null}
-    </section>
-  );
-}
-
-function SizeGuidePage() {
-  return (
-    <section className="hero" aria-labelledby="size-guide-title">
-      <div className="hero-copy">
-        <p className="eyebrow">New tab target</p>
-        <h1 id="size-guide-title">Size Guide</h1>
-        <table>
-          <caption>Shoe size conversion</caption>
-          <thead>
-            <tr>
-              <th>UK</th>
-              <th>EU</th>
-              <th>Foot length</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>UK 8</td>
-              <td>EU 42</td>
-              <td>26.5 cm</td>
-            </tr>
-            <tr>
-              <td>UK 9</td>
-              <td>EU 43</td>
-              <td>27.3 cm</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function OrdersPage({ ordersList, apiUser, cartSessionId }) {
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [apiOrders, setApiOrders] = useState([]);
-  const [selectedOrderId, setSelectedOrderId] = useState(ordersList[0]?.id || "");
-  const combinedOrders = [...apiOrders, ...ordersList].filter(
-    (order, index, list) => list.findIndex((candidate) => candidate.id === order.id) === index
-  );
-  const visibleOrders =
-    statusFilter === "All" ? combinedOrders : combinedOrders.filter((order) => order.status === statusFilter);
-  const totalOrderValue = visibleOrders.reduce((total, order) => total + order.total, 0);
-  const statusOptions = ["All", ...new Set(combinedOrders.map((order) => order.status))];
-  const selectedOrder =
-    visibleOrders.find((order) => order.id === selectedOrderId) || visibleOrders[0] || null;
-
-  useEffect(() => {
-    if (!visibleOrders.some((order) => order.id === selectedOrderId)) {
-      setSelectedOrderId(visibleOrders[0]?.id || "");
-    }
-  }, [selectedOrderId, visibleOrders]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadOrders() {
-      const response = await fetch(`${apiBaseUrl}/api/orders`, {
-        headers: {
-          Authorization: `Bearer ${apiUser.token}`,
-          "X-Cart-Session": cartSessionId
-        }
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const body = await response.json();
-      if (!cancelled) {
-        setApiOrders(body.items.map(mapApiOrder));
-      }
-    }
-
-    loadOrders();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiUser.token, cartSessionId]);
-
-  return (
-    <section className="orders-page" aria-labelledby="orders-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Week 2 API-ready module</p>
-        <h1 id="orders-title">Orders</h1>
-        <p className="lead">
-          Review order history, payment state, fulfilment status, and line-item evidence for
-          end-to-end retail scenarios.
-        </p>
-      </div>
-
-      <section className="orders-summary" aria-label="Orders summary">
-        <div>
-          <span className="status-label">Visible orders</span>
-          <strong data-testid="orders-count">{visibleOrders.length}</strong>
-        </div>
-        <div>
-          <span className="status-label">Order value</span>
-          <strong>{formatPrice(totalOrderValue)}</strong>
-        </div>
-        <label className="field" htmlFor="order-status-filter">
-          <span>Order status</span>
-          <select
-            id="order-status-filter"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            {statusOptions.map((status) => (
-              <option key={status}>{status}</option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <div className="panel">
-        <table>
-          <caption>Recent retail orders</caption>
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Payment</th>
-              <th>Channel</th>
-              <th>Customer</th>
-              <th>Total</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleOrders.map((order) => (
-              <tr key={order.id}>
-                <td>
-                  <strong>{order.id}</strong>
-                  <span className="table-note">{order.items.join(", ")}</span>
-                </td>
-                <td>{order.placedOn}</td>
-                <td>{order.status}</td>
-                <td>{order.payment}</td>
-                <td>{order.channel}</td>
-                <td>{order.customer || "Customer User"}</td>
-                <td>{formatPrice(order.total)}</td>
-                <td>
-                  <button
-                    className="button secondary compact"
-                    type="button"
-                    aria-label={`View details for ${order.id}`}
-                    onClick={() => setSelectedOrderId(order.id)}
-                  >
-                    Details
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {selectedOrder ? (
-        <section className="panel" aria-labelledby="order-detail-title">
-          <h2 id="order-detail-title">Order Detail</h2>
-          <dl className="product-meta">
-            <div>
-              <dt>Order</dt>
-              <dd data-testid="selected-order-id">{selectedOrder.id}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>{selectedOrder.status}</dd>
-            </div>
-            <div>
-              <dt>Payment</dt>
-              <dd>{selectedOrder.payment}</dd>
-            </div>
-            <div>
-              <dt>SLA</dt>
-              <dd>{selectedOrder.sla || "New API order"}</dd>
-            </div>
-            <div>
-              <dt>Fulfilment</dt>
-              <dd>{selectedOrder.fulfilmentCenter || "Session cart"}</dd>
-            </div>
-          </dl>
-          <ul className="detail-list" aria-label="Selected order items">
-            {selectedOrder.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <div className="timeline" aria-label="Order timeline">
-            {(selectedOrder.timeline || ["Cart submitted", "Order API accepted", "Ready for fulfilment"]).map((event) => (
-              <span key={event}>{event}</span>
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </section>
-  );
-}
-
-function AdminProductsPage() {
-  const [adminProducts, setAdminProducts] = useState(products);
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    category: "Accessories",
-    price: "1999",
-    stock: "10",
-    featured: false
-  });
-  const [message, setMessage] = useState("");
-  const categories = ["All", ...new Set(adminProducts.map((product) => product.category))];
-  const visibleProducts =
-    categoryFilter === "All"
-      ? adminProducts
-      : adminProducts.filter((product) => product.category === categoryFilter);
-
-  const addProduct = (event) => {
-    event.preventDefault();
-    const safeName = limitText(newProduct.name.trim(), inputLimits.productName);
-    const safePrice = limitIntegerText(newProduct.price, inputLimits.price) || String(inputLimits.price.min);
-    const safeStock = limitIntegerText(newProduct.stock, inputLimits.stock) || String(inputLimits.stock.min);
-    if (!safeName) {
-      setMessage("Product name is required");
-      return;
-    }
-
-    const product = {
-      name: safeName,
-      slug: slugify(safeName),
-      category: newProduct.category,
-      brand: "Admin Launch",
-      sku: `AD-${slugify(safeName).slice(0, 8).toUpperCase()}`,
-      price: Number(safePrice),
-      rating: 4,
-      stock: Number(safeStock),
-      reorderLevel: 5,
-      warehouse: "ADM-NEW",
-      imageTone: "teal",
-      colors: ["Black"],
-      sizes: ["Standard"],
-      summary: `${safeName} added through the admin product workflow.`,
-      delivery: newProduct.featured ? "Priority launch item" : "Ships in 2 days",
-      warranty: "Admin-defined warranty",
-      returnWindow: "7-day return",
-      tags: newProduct.featured ? ["Featured", "Admin launch"] : ["Admin launch"],
-      highlights: ["Created from admin workflow", "Visible in inventory filters"],
-      specs: { Source: "Admin form", Status: "Draft-ready" }
-    };
-    setAdminProducts((existingProducts) => [product, ...existingProducts]);
-    setNewProduct({ name: "", category: "Accessories", price: "1999", stock: "10", featured: false });
-    setMessage(`${product.name} created`);
-  };
-
-  const updateProduct = (slug, changes) => {
-    setAdminProducts((existingProducts) =>
-      existingProducts.map((product) =>
-        product.slug === slug ? { ...product, ...changes } : product
-      )
-    );
-    const product = adminProducts.find((item) => item.slug === slug);
-    setMessage(`${product?.name || "Product"} updated`);
-  };
-
-  const deleteProduct = (slug) => {
-    const product = adminProducts.find((item) => item.slug === slug);
-    setAdminProducts((existingProducts) => existingProducts.filter((item) => item.slug !== slug));
-    setMessage(`${product?.name || "Product"} deleted`);
-  };
-
-  return (
-    <section className="admin-page" aria-labelledby="admin-products-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Admin workflow</p>
-        <h1 id="admin-products-title">Admin Products</h1>
-        <p className="lead">
-          Manage product data, validate filters, and practice create-flow assertions with stable
-          classroom data.
-        </p>
-      </div>
-
-      <div className="admin-layout">
-        <form className="panel" aria-label="Create product" onSubmit={addProduct}>
-          <h2>Create Product</h2>
-          {message ? <p className="inline-status" role="status">{message}</p> : null}
-          <label className="field" htmlFor="new-product-name">
-            <span>Product name</span>
-            <input
-              id="new-product-name"
-              value={newProduct.name}
-              maxLength={inputLimits.productName}
-              onChange={(event) =>
-                setNewProduct({ ...newProduct, name: limitText(event.target.value, inputLimits.productName) })
-              }
-              required
-            />
-          </label>
-          <label className="field" htmlFor="new-product-category">
-            <span>Category</span>
-            <select
-              id="new-product-category"
-              value={newProduct.category}
-              onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value })}
-            >
-              <option>Accessories</option>
-              <option>Apparel</option>
-              <option>Electronics</option>
-              <option>Fitness</option>
-            </select>
-          </label>
-          <div className="form-grid">
-            <label className="field" htmlFor="new-product-price">
-              <span>Price</span>
-              <input
-                id="new-product-price"
-                min={inputLimits.price.min}
-                max={inputLimits.price.max}
-                step="1"
-                type="number"
-                value={newProduct.price}
-                required
-                onChange={(event) =>
-                  setNewProduct({ ...newProduct, price: limitIntegerText(event.target.value, inputLimits.price) })
-                }
-              />
-            </label>
-            <label className="field" htmlFor="new-product-stock">
-              <span>Stock</span>
-              <input
-                id="new-product-stock"
-                min={inputLimits.stock.min}
-                max={inputLimits.stock.max}
-                step="1"
-                type="number"
-                value={newProduct.stock}
-                required
-                onChange={(event) =>
-                  setNewProduct({ ...newProduct, stock: limitIntegerText(event.target.value, inputLimits.stock) })
-                }
-              />
-            </label>
-          </div>
-          <label className="checkbox-field" htmlFor="featured-product">
-            <input
-              id="featured-product"
-              type="checkbox"
-              checked={newProduct.featured}
-              onChange={(event) => setNewProduct({ ...newProduct, featured: event.target.checked })}
-            />
-            <span>Featured launch item</span>
-          </label>
-          <button className="button primary" type="submit">
-            Save product
-          </button>
-        </form>
-
-        <section className="panel" aria-labelledby="product-inventory-title">
-          <h2 id="product-inventory-title">Product Inventory</h2>
-          <label className="field" htmlFor="admin-category-filter">
-            <span>Category filter</span>
-            <select
-              id="admin-category-filter"
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-            >
-              {categories.map((category) => (
-                <option key={category}>{category}</option>
-              ))}
-            </select>
-          </label>
-          <p className="inline-status" role="status" data-testid="admin-product-count">
-            Showing {visibleProducts.length} products
-          </p>
-          <div className="table-scroll">
-            <table>
-              <caption>Admin product inventory</caption>
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>SKU</th>
-                  <th>Category</th>
-                  <th>Price</th>
-                  <th>Stock</th>
-                  <th>Warehouse</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleProducts.map((product) => (
-                  <tr key={product.slug}>
-                    <td>{product.name}</td>
-                    <td>{product.sku}</td>
-                    <td>{product.category}</td>
-                    <td>{formatPrice(product.price)}</td>
-                    <td>
-                      {product.stock}
-                      <span className="table-note">Reorder at {product.reorderLevel}</span>
-                    </td>
-                    <td>{product.warehouse}</td>
-                    <td>
-                      <div className="table-actions" aria-label={`${product.name} actions`}>
-                        <button
-                          className="button secondary compact"
-                          type="button"
-                          aria-label={`Restock ${product.name}`}
-                          onClick={() => updateProduct(product.slug, { stock: product.stock + 5 })}
-                        >
-                          Restock
-                        </button>
-                        <button
-                          className="button secondary compact"
-                          type="button"
-                          aria-label={`Mark down ${product.name}`}
-                          onClick={() =>
-                            updateProduct(product.slug, {
-                              price: Math.max(1, Math.round(product.price * 0.9))
-                            })
-                          }
-                        >
-                          Mark down
-                        </button>
-                        <button
-                          className="button secondary danger compact"
-                          type="button"
-                          aria-label={`Delete ${product.name}`}
-                          onClick={() => deleteProduct(product.slug)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function AdminOrdersPage({ ordersList }) {
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [channelFilter, setChannelFilter] = useState("All");
-  const visibleOrders = ordersList
-    .filter((order) => statusFilter === "All" || order.status === statusFilter)
-    .filter((order) => channelFilter === "All" || order.channel === channelFilter);
-  const statuses = ["All", ...new Set(ordersList.map((order) => order.status))];
-  const channels = ["All", ...new Set(ordersList.map((order) => order.channel))];
-
-  return (
-    <section className="admin-page" aria-labelledby="admin-orders-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Admin workflow</p>
-        <h1 id="admin-orders-title">Admin Orders</h1>
-        <p className="lead">
-          Review fulfilment queues, payment states, and channel filters for role-based admin tests.
-        </p>
-      </div>
-
-      <div className="orders-summary" aria-label="Admin order filters">
-        <div>
-          <span className="status-label">Visible orders</span>
-          <strong data-testid="admin-orders-count">{visibleOrders.length}</strong>
-        </div>
-        <label className="field" htmlFor="admin-order-status">
-          <span>Status</span>
-          <select
-            id="admin-order-status"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            {statuses.map((status) => (
-              <option key={status}>{status}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field" htmlFor="admin-order-channel">
-          <span>Channel</span>
-          <select
-            id="admin-order-channel"
-            value={channelFilter}
-            onChange={(event) => setChannelFilter(event.target.value)}
-          >
-            {channels.map((channel) => (
-              <option key={channel}>{channel}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <section className="panel" aria-labelledby="admin-orders-table-title">
-        <h2 id="admin-orders-table-title">Fulfilment Queue</h2>
-        <table>
-          <caption>Admin order queue</caption>
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Status</th>
-              <th>Payment</th>
-              <th>Channel</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleOrders.map((order) => (
-              <tr key={order.id}>
-                <td>{order.id}</td>
-                <td>{order.status}</td>
-                <td>{order.payment}</td>
-                <td>{order.channel}</td>
-                <td>{formatPrice(order.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-    </section>
-  );
-}
-
-function ApiDocsPage() {
-  return (
-    <section className="api-docs-page" aria-labelledby="api-docs-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Week 2 API reference</p>
-        <h1 id="api-docs-title">API Docs</h1>
-        <p className="lead">
-          Swagger-style classroom reference for endpoints, auth requirements, request payloads,
-          response shapes, and negative cases used in the SDET Retail API labs.
-        </p>
-        <div className="api-meta-grid" aria-label="API documentation summary">
-          <div>
-            <span>Base URL</span>
-            <strong>{apiBaseUrl}</strong>
-          </div>
-          <div>
-            <span>Customer token</span>
-            <strong>demo-token-1-customer</strong>
-          </div>
-          <div>
-            <span>Ops client</span>
-            <strong>OAUTH_CLIENT_ID / OAUTH_CLIENT_SECRET</strong>
-          </div>
-          <div>
-            <span>API key</span>
-            <strong>RETAIL_API_KEY</strong>
-          </div>
-        </div>
-      </div>
-
-      <div className="api-doc-groups">
-        {apiDocs.map((group) => (
-          <section className="panel api-doc-group" key={group.group} aria-labelledby={`api-${slugify(group.group)}`}>
-            <div className="api-group-header">
-              <div>
-                <p className="eyebrow">Endpoint group</p>
-                <h2 id={`api-${slugify(group.group)}`}>{group.group}</h2>
-                <p>{group.description}</p>
-              </div>
-              <span>{group.endpoints.length} endpoints</span>
-            </div>
-
-            <div className="api-endpoint-list">
-              {group.endpoints.map((endpoint) => (
-                <article
-                  className="api-endpoint"
-                  key={`${endpoint.method}-${endpoint.path}-${endpoint.auth}-${endpoint.purpose}`}
-                >
-                  <div className="api-endpoint-title">
-                    <span className={`method method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span>
-                    <code>{endpoint.path}</code>
-                  </div>
-                  <p>{endpoint.purpose}</p>
-
-                  <dl className="api-facts">
-                    <div>
-                      <dt>Auth</dt>
-                      <dd>{endpoint.auth}</dd>
-                    </div>
-                    <div>
-                      <dt>Group</dt>
-                      <dd>{group.group}</dd>
-                    </div>
-                  </dl>
-
-                  {endpoint.headers ? <ApiExample title="Headers" value={endpoint.headers} /> : null}
-                  {endpoint.request ? <ApiExample title="Request Body" value={endpoint.request} /> : null}
-                  {endpoint.requestText ? <ApiExample title="Request Body" value={endpoint.requestText} /> : null}
-                  {endpoint.response ? <ApiExample title="Response" value={endpoint.response} /> : null}
-                  {endpoint.responseText ? <ApiExample title="Response" value={endpoint.responseText} /> : null}
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ApiExample({ title, value }) {
-  const content = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-
-  return (
-    <div className="api-example">
-      <span>{title}</span>
-      <pre><code>{content}</code></pre>
+        </nav>
+      </header>
+      <main>{children}</main>
+      <footer>
+        <span>ShopKart training environment</span>
+        <span>Prices use integer paise</span>
+      </footer>
     </div>
   );
 }
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, navigate }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [country, setCountry] = useState("India");
   const [error, setError] = useState("");
-  const [isSignInReady, setIsSignInReady] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    setIsSignInReady(false);
-    const timer = window.setTimeout(() => setIsSignInReady(true), 900);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  const demoCredentials = useMemo(
-    () => [
-      { label: "Customer", value: "customer@example.com / Password@123" },
-      { label: "Deck demo", value: "user@test.com / Secret123" },
-      { label: "Locked", value: "locked@example.com / Password@123" }
-    ],
-    []
-  );
-
-  const submit = async (event) => {
+  async function submit(event) {
     event.preventDefault();
+    setBusy(true);
     setError("");
-    setIsSubmitting(true);
     try {
-      const result = await onLogin({ email: email.trim(), password, rememberMe, country });
-      if (!result.ok) {
-        setError(result.message);
-      }
-    } catch {
-      setError("Login service is unavailable. Try again after the API is running.");
+      const result = await api("/auth/login", { method: "POST", body: { email, password } });
+      onLogin(result);
+      navigate("/");
+    } catch (requestError) {
+      setError(requestError.message);
     } finally {
-      setIsSubmitting(false);
+      setBusy(false);
     }
-  };
+  }
 
   return (
-    <section className="login-layout" aria-labelledby="login-title">
-      <form className="login-form" aria-label="Login" onSubmit={submit}>
-        <p className="eyebrow">Day 3 delayed button enabled</p>
-        <h1 id="login-title">Sign in to Retail Lab</h1>
-        <p className="form-help">
-          Use the classroom credentials to practice labels, roles, form inputs, assertions, and
-          synchronization.
-        </p>
-
-        {!isSignInReady ? (
-          <p className="inline-status" role="status">Preparing secure sign-in...</p>
-        ) : null}
-
-        {error ? (
-          <div className="alert" role="alert" data-testid="login-error">
-            {error}
-          </div>
-        ) : null}
-
-        <label className="field" htmlFor="email">
-          <span>Email</span>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="username"
-            value={email}
-            maxLength={inputLimits.email}
-            onChange={(event) => setEmail(limitText(event.target.value, inputLimits.email))}
-            placeholder="customer@example.com"
-            required
-          />
-        </label>
-
-        <label className="field" htmlFor="password">
-          <span>Password</span>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            maxLength={inputLimits.password}
-            onChange={(event) => setPassword(limitText(event.target.value, inputLimits.password))}
-            placeholder="Password@123"
-            required
-          />
-        </label>
-
-        <label className="field" htmlFor="country">
-          <span>Country</span>
-          <select id="country" value={country} onChange={(event) => setCountry(event.target.value)}>
-            <option>India</option>
-            <option>United States</option>
-            <option>United Kingdom</option>
-          </select>
-        </label>
-
-        <label className="checkbox-field" htmlFor="remember-me">
-          <input
-            id="remember-me"
-            name="rememberMe"
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(event) => setRememberMe(event.target.checked)}
-          />
-          <span>Remember me</span>
-        </label>
-
-        <button
-          className="button primary form-submit"
-          type="submit"
-          disabled={!isSignInReady || isSubmitting}
-        >
-          Sign in
-        </button>
+    <section className="auth-layout">
+      <div className="auth-copy">
+        <h1>Sign in to continue shopping</h1>
+        <p>Use your assigned ShopKart test persona. Credentials are resolved from your local secret source and never belong in feature files.</p>
+      </div>
+      <form className="auth-form" onSubmit={submit} aria-label="ShopKart sign in">
+        <h2>Customer sign in</h2>
+        <label htmlFor="email">Email</label>
+        <input id="email" name="email" type="email" maxLength={120} value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="username" />
+        <label htmlFor="password">Password</label>
+        <input id="password" name="password" type="password" maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" />
+        {error ? <div className="alert error" role="alert">{error}</div> : null}
+        <button className="primary-button" type="submit" disabled={busy}>{busy ? "Signing in..." : "Sign in"}</button>
       </form>
-
-      <aside className="panel login-notes" aria-label="Classroom test users">
-        <h2>Classroom Credentials</h2>
-        <dl>
-          {demoCredentials.map((item) => (
-            <div key={item.label}>
-              <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </aside>
     </section>
   );
 }
 
-function SyncLabPage() {
-  const [status, setStatus] = useState("idle");
+function CatalogPage({ session, navigate }) {
   const [products, setProducts] = useState([]);
-  const [cartCount, setCartCount] = useState("0");
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  const loadProducts = async () => {
-    setStatus("loading");
-    setProducts([]);
-    setCartCount("0");
-    const response = await fetch(`${apiBaseUrl}/api/products?delay=900`);
-    const body = await response.json();
-    setProducts(body.items);
-    setCartCount("3");
-    setStatus("loaded");
-  };
-
-  return (
-    <section className="sync-layout" aria-labelledby="sync-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Day 3 synchronization lab</p>
-        <h1 id="sync-title">Dynamic Retail Data</h1>
-        <p className="lead">
-          Click Load to trigger a delayed API request. Use assertions for the spinner, table, and
-          cart count instead of fixed sleeps.
-        </p>
-        <button className="button primary" type="button" onClick={loadProducts}>
-          Load
-        </button>
-      </div>
-
-      <div className="panel">
-        <h2>Loaded Products</h2>
-        <p>
-          Cart count: <strong data-testid="cart-count">{cartCount}</strong>
-        </p>
-        {status === "loading" ? (
-          <div className="spinner" data-testid="spinner" role="status">
-            Loading products...
-          </div>
-        ) : null}
-        {status === "loaded" ? (
-          <table>
-            <caption>Retail product results</caption>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Stock</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td>{product.name}</td>
-                  <td>{product.category}</td>
-                  <td>{product.stock}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function PosOfflineLabPage({ currentUser }) {
-  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
-  const [outbox, setOutbox] = useState(readPosOutbox);
-  const [statusMessage, setStatusMessage] = useState("Ready to take a sale.");
-  const [lastSyncedSale, setLastSyncedSale] = useState(null);
-  const syncingRef = useRef(false);
-  const retryTimerRef = useRef(null);
-  const featuredProduct = products[0];
-  const pendingSales = outbox.filter((sale) => sale.status !== "synced");
-
-  const persistOutbox = (nextOutbox) => {
-    writePosOutbox(nextOutbox);
-    setOutbox(nextOutbox);
-  };
-
-  const flushOutbox = async () => {
-    if (syncingRef.current) {
-      return;
-    }
-
-    const latestOutbox = readPosOutbox();
-    const waitingSales = latestOutbox.filter((sale) => sale.status !== "synced");
-    if (!window.navigator.onLine || waitingSales.length === 0) {
-      return;
-    }
-
-    syncingRef.current = true;
-    setStatusMessage("Syncing queued sales...");
-
-    let nextOutbox = latestOutbox;
+  const loadProducts = useCallback(async (searchText = "") => {
+    setLoading(true);
+    setError("");
     try {
-      for (const sale of waitingSales) {
-        const response = await fetch(`${apiBaseUrl}/api/sales`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${currentUser.token}`,
-            "Content-Type": "application/json",
-            "Idempotency-Key": sale.clientSaleId
-          },
-          body: JSON.stringify(sale)
-        });
-
-        if (!response.ok) {
-          throw new Error("Sale sync failed");
-        }
-
-        const syncedSale = await response.json();
-        nextOutbox = nextOutbox.map((item) =>
-          item.clientSaleId === sale.clientSaleId
-            ? { ...item, status: "synced", serverSaleId: syncedSale.id }
-            : item
-        );
-        persistOutbox(nextOutbox);
-        setLastSyncedSale(syncedSale);
-      }
-
-      setStatusMessage("All queued sales are synced.");
-    } catch {
-      const rolledBackCount = nextOutbox.filter(
-        (item) => item.status !== "synced" && item.queuedWhileOnline
-      ).length;
-      nextOutbox = nextOutbox
-        .filter((item) => item.status === "synced" || !item.queuedWhileOnline)
-        .map((item) => (item.status === "synced" ? item : { ...item, status: "retrying" }));
-      persistOutbox(nextOutbox);
-      setStatusMessage(
-        rolledBackCount > 0
-          ? "Sync failed. Optimistic sale rolled back."
-          : "Sync failed. Sale is still queued and will retry."
-      );
-      if (window.navigator.onLine) {
-        window.clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = window.setTimeout(() => {
-          flushOutbox();
-        }, 500);
-      }
+      setProducts(await api(`/products?q=${encodeURIComponent(searchText)}`));
+    } catch (requestError) {
+      setError(requestError.message);
     } finally {
-      syncingRef.current = false;
+      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    const updateOnlineStatus = () => {
-      const nextOnline = window.navigator.onLine;
-      setIsOnline(nextOnline);
-      setStatusMessage(
-        nextOnline ? "Connection restored. Checking queued sales." : "Offline mode: sales will be queued."
-      );
-      if (nextOnline) {
-        window.setTimeout(() => flushOutbox(), 0);
-      }
-    };
-
-    window.addEventListener("online", updateOnlineStatus);
-    window.addEventListener("offline", updateOnlineStatus);
-
-    return () => {
-      window.removeEventListener("online", updateOnlineStatus);
-      window.removeEventListener("offline", updateOnlineStatus);
-      window.clearTimeout(retryTimerRef.current);
-    };
   }, []);
 
-  const queueSale = () => {
-    const sale = {
-      clientSaleId: `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      productId: featuredProduct.id,
-      productName: featuredProduct.name,
-      quantity: 1,
-      total: featuredProduct.price,
-      cashier: currentUser.email,
-      status: "pending",
-      queuedWhileOnline: window.navigator.onLine,
-      queuedAt: new Date().toISOString()
-    };
-    const nextOutbox = [sale, ...readPosOutbox()];
-    persistOutbox(nextOutbox);
-    setStatusMessage(
-      window.navigator.onLine
-        ? "Sale queued locally. Sync will start now."
-        : "Sale queued locally while offline."
-    );
-    if (window.navigator.onLine) {
-      window.setTimeout(() => flushOutbox(), 0);
-    }
-  };
+  useEffect(() => { loadProducts(); }, [loadProducts]);
 
-  const resetOutbox = () => {
-    window.clearTimeout(retryTimerRef.current);
-    persistOutbox([]);
-    setLastSyncedSale(null);
-    setStatusMessage("POS outbox reset.");
-  };
+  function search(event) {
+    event.preventDefault();
+    loadProducts(query);
+  }
 
-  return (
-    <section className="pos-layout" aria-labelledby="pos-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Week 5 Day 4 offline lab</p>
-        <h1 id="pos-title">Resilient POS</h1>
-        <p className="lead">
-          Simulate a cashier sale during a network drop. The page shows the connection truth,
-          queues the sale locally, and syncs it exactly once when the network returns.
-        </p>
-
-        <div
-          className={`network-banner ${isOnline ? "online" : "offline"}`}
-          role="status"
-          data-testid="network-banner"
-          data-online={String(isOnline)}
-        >
-          {isOnline ? "Online - sales sync normally" : "Offline - sales will be queued"}
-        </div>
-        <span className="visually-hidden" data-testid="net-state" data-online={String(isOnline)}>
-          {isOnline ? "online" : "offline"}
-        </span>
-
-        <div className="pos-actions">
-          <button className="button primary" type="button" onClick={queueSale}>
-            Queue sale
-          </button>
-          <button className="button secondary" type="button" onClick={flushOutbox}>
-            Sync now
-          </button>
-          <button className="button secondary danger" type="button" onClick={resetOutbox}>
-            Reset lab
-          </button>
-        </div>
-      </div>
-
-      <section className="panel" aria-labelledby="pos-sale-title">
-        <h2 id="pos-sale-title">Counter sale</h2>
-        <dl className="summary-list">
-          <div>
-            <dt>Item</dt>
-            <dd>{featuredProduct.name}</dd>
-          </div>
-          <div>
-            <dt>Quantity</dt>
-            <dd>1</dd>
-          </div>
-          <div>
-            <dt>Total</dt>
-            <dd data-testid="pos-sale-total">{formatPrice(featuredProduct.price)}</dd>
-          </div>
-        </dl>
-        <p className="inline-status" role="status" data-testid="pos-sync-status">
-          {statusMessage}
-        </p>
-        <p>
-          Pending outbox: <strong data-testid="outbox-count">{pendingSales.length}</strong>
-        </p>
-        {lastSyncedSale ? (
-          <p className="success-note" data-testid="last-synced-sale">
-            Last synced sale: {lastSyncedSale.saleNumber}
-          </p>
-        ) : null}
-      </section>
-
-      <section className="panel pos-outbox" aria-labelledby="pos-outbox-title">
-        <h2 id="pos-outbox-title">Local outbox</h2>
-        {outbox.length === 0 ? (
-          <p role="status">No queued sales.</p>
-        ) : (
-          <table>
-            <caption>Queued POS sales</caption>
-            <thead>
-              <tr>
-                <th>Client sale id</th>
-                <th>Product</th>
-                <th>Status</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {outbox.map((sale) => (
-                <tr
-                  key={sale.clientSaleId}
-                  data-testid="outbox-row"
-                  data-pending={String(sale.status === "pending" || sale.status === "retrying")}
-                >
-                  <td>{sale.clientSaleId}</td>
-                  <td>{sale.productName}</td>
-                  <td data-testid="outbox-status">{sale.status}</td>
-                  <td>{formatPrice(sale.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </section>
-  );
-}
-
-function ReturnsRefundPage({ currentUser }) {
-  const [order, setOrder] = useState(null);
-  const [status, setStatus] = useState("idle");
-  const [error, setError] = useState("");
-  const orderId = new URLSearchParams(window.location.search).get("orderId");
-
-  const loadOrder = async () => {
-    if (!orderId) {
-      setStatus("empty");
+  async function quickAdd(product) {
+    if (!session) {
+      navigate("/login");
       return;
     }
+    setError("");
+    setNotice("");
+    try {
+      const key = cartStorageKey(session.customerId);
+      let cartId = sessionStorage.getItem(key);
+      if (!cartId) {
+        const cart = await api("/carts", { method: "POST", token: session.token });
+        cartId = String(cart.cartId);
+        sessionStorage.setItem(key, cartId);
+      }
+      await api(`/carts/${cartId}/items`, {
+        method: "POST",
+        token: session.token,
+        body: { sku: product.sku, qty: 1 }
+      });
+      setNotice(`${product.name} added to cart`);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
 
-    setStatus("loading");
+  return (
+    <div className="page catalog-page">
+      <section className="catalog-heading">
+        <div>
+          <h1>Useful things, thoughtfully selected.</h1>
+          <p>One deterministic catalogue for UI, API, database, security and reporting exercises.</p>
+        </div>
+        <form className="search-form" role="search" onSubmit={search}>
+          <label className="visually-hidden" htmlFor="catalog-search">Search products</label>
+          <Search size={19} aria-hidden="true" />
+          <input id="catalog-search" name="q" type="search" maxLength={80} placeholder="Search name, SKU or category" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <button type="submit">Search</button>
+        </form>
+      </section>
+      {error ? <div className="alert error" role="alert">{error}</div> : null}
+      {notice ? <div className="alert success" role="status">{notice}</div> : null}
+      {loading ? <p className="status-message" role="status">Loading products...</p> : null}
+      {!loading && products.length === 0 ? <p className="status-message">No products match your search.</p> : null}
+      <section className="product-grid" aria-label="Products">
+        {products.map((product) => (
+          <div className="product-card product" role="article" key={product.sku}>
+            <button className={`product-image image-${product.imageKey}`} type="button" onClick={() => navigate(`/product/${product.sku}`)} aria-label={`Open ${product.name}`} />
+            <div className="product-body">
+              <div className="product-meta"><span>{product.category}</span><span>{product.sku}</span></div>
+              <h2><button type="button" onClick={() => navigate(`/product/${product.sku}`)}>{product.name}</button></h2>
+              <p>{product.description}</p>
+              <div className="product-footer">
+                <strong>{money(product.pricePaise)}</strong>
+                <span className={product.stock === 0 ? "stock out" : "stock"}>{product.stock === 0 ? "Out of stock" : `${product.stock} available`}</span>
+              </div>
+              <button className="quick-add" type="button" onClick={() => quickAdd(product)} disabled={product.stock === 0}>Add to cart</button>
+            </div>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function ProductPage({ sku, session, navigate }) {
+  const [product, setProduct] = useState(null);
+  const [qty, setQty] = useState(1);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api(`/products/${encodeURIComponent(sku)}`).then(setProduct).catch((requestError) => setError(requestError.message));
+  }, [sku]);
+
+  async function addToCart() {
+    if (!session) {
+      navigate("/login");
+      return;
+    }
+    setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/api/refund-lab/orders/${orderId}`, {
-        headers: {
-          Authorization: `Bearer ${currentUser.token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error("Refund order API failed");
+      const key = cartStorageKey(session.customerId);
+      let cartId = sessionStorage.getItem(key);
+      if (!cartId) {
+        const cart = await api("/carts", { method: "POST", token: session.token });
+        cartId = String(cart.cartId);
+        sessionStorage.setItem(key, cartId);
       }
-
-      setOrder(await response.json());
-      setStatus("ready");
-    } catch {
-      setError("Refund order could not be loaded.");
-      setStatus("error");
+      await api(`/carts/${cartId}/items`, {
+        method: "POST",
+        token: session.token,
+        body: { sku, qty }
+      });
+      navigate("/cart");
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
-  useEffect(() => {
-    loadOrder();
-  }, [orderId, currentUser.token]);
-
-  const lastRefund = order?.lastRefund;
+  if (error && !product) return <div className="page"><div className="alert error" role="alert">{error}</div></div>;
+  if (!product) return <div className="page"><p role="status">Loading product...</p></div>;
 
   return (
-    <section className="returns-layout" aria-labelledby="returns-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Week 5 Day 5 money lab</p>
-        <h1 id="returns-title">Returns & Refunds</h1>
-        <p className="lead">
-          Review refund eligibility, paise-safe calculations, prorated tax, ledger movement and
-          idempotent refund outcomes from the retail API.
-        </p>
-      </div>
-
-      <section className="panel" aria-labelledby="refund-ledger-title">
-        <h2 id="refund-ledger-title">Refund Ledger</h2>
-        {!orderId ? (
-          <p role="status">Create a refund lab order from the W5D5 Playwright setup, then open this page with an orderId.</p>
-        ) : null}
-        {status === "loading" ? <p className="spinner" role="status">Loading refund order...</p> : null}
-        {error ? <div className="alert" role="alert">{error}</div> : null}
-        {order ? (
-          <>
-            <dl className="summary-list">
-              <div>
-                <dt>Order</dt>
-                <dd data-testid="refund-order-number">{order.orderNumber}</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd data-testid="refund-status">{order.status}</dd>
-              </div>
-              <div>
-                <dt>Order total</dt>
-                <dd data-testid="order-total-paise">{order.totalPaise}</dd>
-              </div>
-              <div>
-                <dt>Refund count</dt>
-                <dd data-testid="refund-count">{order.refundCount}</dd>
-              </div>
-              <div>
-                <dt>Refundable balance</dt>
-                <dd data-testid="refund-balance-paise">{order.refundableBalancePaise}</dd>
-              </div>
-            </dl>
-
-            <div className="refund-total-band">
-              <span>Latest refund</span>
-              <strong data-testid="refund-total">
-                {lastRefund ? formatPaise(lastRefund.amountPaise) : formatPaise(0)}
-              </strong>
-              <small data-testid="refund-total-paise">
-                {lastRefund ? `${lastRefund.amountPaise} paise` : "0 paise"}
-              </small>
-            </div>
-          </>
-        ) : null}
-      </section>
-
-      {order ? (
-        <section className="panel" aria-labelledby="refund-lines-title">
-          <h2 id="refund-lines-title">Returnable Lines</h2>
-          <table>
-            <caption>Refund line ledger</caption>
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Unit</th>
-                <th>Purchased</th>
-                <th>Refunded</th>
-                <th>Rule</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.lines.map((line) => (
-                <tr key={line.sku} data-testid="refund-line">
-                  <td>{line.sku}</td>
-                  <td>{formatPaise(line.unitPaise)}</td>
-                  <td>{line.qty}</td>
-                  <td data-testid={`refunded-${line.sku}`}>{line.refundedQty}</td>
-                  <td>{line.finalSale ? "FINAL_SALE" : line.nonReturnable ? "NON_RETURNABLE" : "RETURNABLE"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      ) : null}
-    </section>
-  );
-}
-
-function ProfilePage({ currentUser }) {
-  const [profile, setProfile] = useState(null);
-  const [draftProfile, setDraftProfile] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    marketingOptIn: true
-  });
-  const [error, setError] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
-  const [fileName, setFileName] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfile() {
-      if (!currentUser?.token) {
-        setError("Sign in before loading the profile.");
-        return;
-      }
-
-      const response = await fetch(`${apiBaseUrl}/api/users/me?delay=500`, {
-        headers: { Authorization: `Bearer ${currentUser.token}` }
-      });
-
-      if (!response.ok) {
-        setError("Profile could not be loaded.");
-        return;
-      }
-
-      const body = await response.json();
-      if (!cancelled) {
-        const enrichedProfile = {
-          ...body,
-          phone: "+91 98765 43210",
-          address: "UST Campus, Bengaluru",
-          marketingOptIn: true
-        };
-        setProfile(enrichedProfile);
-        setDraftProfile(enrichedProfile);
-      }
-    }
-
-    loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  return (
-    <section className="profile-page" aria-labelledby="profile-title">
-      <div className="hero-copy">
-        <p className="eyebrow">Network wait target</p>
-        <h1 id="profile-title">Profile</h1>
-        <p className="lead">
-          Practice authenticated data loading, editable form fields, validation, and file upload
-          locators.
-        </p>
-        {error ? <div className="alert" role="alert">{error}</div> : null}
-        {!error && !profile ? (
-          <div className="spinner" data-testid="profile-spinner" role="status">
-            Loading profile...
-          </div>
-        ) : null}
-      </div>
-
-      {profile ? (
-        <form
-          className="profile-form panel"
-          aria-label="Profile details"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const safeProfile = {
-              ...draftProfile,
-              name: limitText(draftProfile.name.trim(), inputLimits.profileName),
-              phone: limitText(draftProfile.phone.trim(), inputLimits.phone),
-              address: limitText(draftProfile.address.trim(), inputLimits.address)
-            };
-            if (!safeProfile.name) {
-              setSaveMessage("Name is required.");
-              return;
-            }
-            if (currentUser?.token) {
-              await fetch(`${apiBaseUrl}/api/users/me`, {
-                method: "PUT",
-                headers: {
-                  Authorization: `Bearer ${currentUser.token}`,
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ name: safeProfile.name })
-              });
-            }
-            setDraftProfile(safeProfile);
-            setProfile(safeProfile);
-            setSaveMessage("Profile saved.");
-          }}
-        >
-          <p className="table-note">Signed in email: {profile.email}</p>
-          {saveMessage ? <p className="inline-status" role="status">{saveMessage}</p> : null}
-          <div className="form-grid">
-            <label className="field" htmlFor="profile-name">
-              <span>Name</span>
-              <input
-                id="profile-name"
-                value={draftProfile.name}
-                maxLength={inputLimits.profileName}
-                onChange={(event) =>
-                  setDraftProfile({ ...draftProfile, name: limitText(event.target.value, inputLimits.profileName) })
-                }
-                required
-              />
-            </label>
-            <label className="field" htmlFor="profile-email">
-              <span>Email</span>
-              <input id="profile-email" type="email" value={profile.email} readOnly />
-            </label>
-          </div>
-          <div className="form-grid">
-            <label className="field" htmlFor="profile-role">
-              <span>Role</span>
-              <input id="profile-role" value={profile.role} readOnly />
-            </label>
-            <label className="field" htmlFor="profile-phone">
-              <span>Phone</span>
-              <input
-                id="profile-phone"
-                value={draftProfile.phone}
-                maxLength={inputLimits.phone}
-                onChange={(event) =>
-                  setDraftProfile({ ...draftProfile, phone: limitText(event.target.value, inputLimits.phone) })
-                }
-              />
-            </label>
-          </div>
-          <label className="field" htmlFor="profile-address">
-            <span>Address</span>
-            <textarea
-              id="profile-address"
-              value={draftProfile.address}
-              maxLength={inputLimits.address}
-              onChange={(event) =>
-                setDraftProfile({ ...draftProfile, address: limitText(event.target.value, inputLimits.address) })
-              }
-            />
-          </label>
-          <label className="field" htmlFor="profile-avatar">
-            <span>Profile document</span>
-            <input
-              id="profile-avatar"
-              type="file"
-              onChange={(event) => setFileName(event.target.files?.[0]?.name || "")}
-            />
-          </label>
-          {fileName ? <p className="inline-status" role="status">Selected file: {fileName}</p> : null}
-          <label className="checkbox-field" htmlFor="marketing-opt-in">
-            <input
-              id="marketing-opt-in"
-              type="checkbox"
-              checked={draftProfile.marketingOptIn}
-              onChange={(event) =>
-                setDraftProfile({ ...draftProfile, marketingOptIn: event.target.checked })
-              }
-            />
-            <span>Receive order and offer notifications</span>
-          </label>
-          <button className="button primary" type="submit">
-            Save profile
+    <div className="page">
+      <button className="back-button" type="button" onClick={() => navigate("/")}><ArrowLeft size={18} aria-hidden="true" /> Back to catalog</button>
+      <section className="product-detail">
+        <div className={`detail-image image-${product.imageKey}`} role="img" aria-label={product.name} />
+        <div className="detail-copy">
+          <span className="category-label">{product.category}</span>
+          <h1>{product.name}</h1>
+          <p className="sku">{product.sku}</p>
+          <p>{product.description}</p>
+          <strong className="detail-price">{money(product.pricePaise)}</strong>
+          <label htmlFor="quantity">Quantity</label>
+          <input id="quantity" name="quantity" type="number" min="1" max={Math.max(product.stock, 1)} value={qty} onChange={(event) => setQty(Number(event.target.value))} />
+          {error ? <div className="alert error" role="alert">{error}</div> : null}
+          <button className="primary-button" type="button" onClick={addToCart} disabled={busy || product.stock === 0}>
+            <ShoppingCart size={19} aria-hidden="true" /> {product.stock === 0 ? "Out of stock" : busy ? "Adding..." : "Add to cart"}
           </button>
-        </form>
-      ) : null}
-    </section>
+        </div>
+      </section>
+    </div>
   );
 }
 
-export default App;
+function CartPage({ session, navigate }) {
+  const [cart, setCart] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!session) return;
+    const cartId = sessionStorage.getItem(cartStorageKey(session.customerId));
+    if (!cartId) return;
+    api(`/carts/${cartId}`, { token: session.token }).then(setCart).catch((requestError) => setError(requestError.message));
+  }, [session]);
+
+  if (!session) return <RequireLogin navigate={navigate} />;
+  if (error) return <div className="page"><div className="alert error" role="alert">{error}</div></div>;
+  if (!cart || cart.items.length === 0) {
+    return <div className="page empty-state"><ShoppingCart size={38} aria-hidden="true" /><h1>Your cart is empty</h1><button className="primary-button" type="button" onClick={() => navigate("/")}>Browse products</button></div>;
+  }
+
+  return (
+    <div className="page narrow-page">
+      <h1>Your cart</h1>
+      <table className="cart-table">
+        <caption>Items selected for checkout</caption>
+        <thead><tr><th scope="col">Product</th><th scope="col">SKU</th><th scope="col">Qty</th><th scope="col">Line total</th></tr></thead>
+        <tbody>
+          {cart.items.map((item) => (
+            <tr className="cart-line" key={item.sku}>
+              <td>{item.name}</td><td>{item.sku}</td><td>{item.qty}</td><td className="line-total">{money(item.lineTotalPaise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="cart-summary"><span>Total</span><strong data-role="cart-total">{money(cart.totalPaise)}</strong></div>
+      <div className="action-row"><button type="button" onClick={() => navigate("/")}>Continue shopping</button><button className="primary-button" type="button" onClick={() => navigate("/checkout")}>Checkout</button></div>
+    </div>
+  );
+}
+
+function CheckoutPage({ session, navigate }) {
+  const [address, setAddress] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!session) return <RequireLogin navigate={navigate} />;
+
+  async function placeOrder(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const key = cartStorageKey(session.customerId);
+      const cartId = sessionStorage.getItem(key);
+      if (!cartId) throw new Error("Your cart is empty");
+      const order = await api("/orders", {
+        method: "POST",
+        token: session.token,
+        body: { cartId: Number(cartId), address }
+      });
+      sessionStorage.removeItem(key);
+      navigate(`/orders/${order.orderId}`);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="page narrow-page">
+      <form className="checkout-form" onSubmit={placeOrder}>
+        <h1>Checkout</h1>
+        <p>Confirm a delivery address, then place one deterministic order from your current cart.</p>
+        <label htmlFor="address">Delivery address</label>
+        <textarea id="address" name="address" minLength={10} maxLength={240} rows={5} value={address} onChange={(event) => setAddress(event.target.value)} required />
+        {error ? <div className="alert error" role="alert">{error}</div> : null}
+        <button className="primary-button" type="submit" disabled={busy}>{busy ? "Placing order..." : "Place order"}</button>
+      </form>
+    </div>
+  );
+}
+
+function OrderPage({ orderId, session, navigate }) {
+  const [order, setOrder] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!session) return;
+    api(`/orders/${orderId}`, { token: session.token }).then(setOrder).catch((requestError) => setError(requestError.message));
+  }, [orderId, session]);
+  if (!session) return <RequireLogin navigate={navigate} />;
+  if (error) return <div className="page"><div className="alert error" role="alert">{error}</div></div>;
+  if (!order) return <div className="page"><p role="status">Loading order...</p></div>;
+
+  return (
+    <div className="page narrow-page">
+      <section className="order-confirmation">
+        <CheckCircle2 size={46} aria-hidden="true" />
+        <p>Order #{order.orderId}</p>
+        <h1>Order confirmed</h1>
+        <dl>
+          <div><dt>Status</dt><dd data-field="order-status">{order.status}</dd></div>
+          <div><dt>Total</dt><dd data-field="order-total">{money(order.totalPaise)}</dd></div>
+          <div><dt>Delivery address</dt><dd>{order.address}</dd></div>
+        </dl>
+        <button className="primary-button" type="button" onClick={() => navigate("/")}>Return to catalog</button>
+      </section>
+    </div>
+  );
+}
+
+function RequireLogin({ navigate }) {
+  return <div className="page empty-state"><LogIn size={38} aria-hidden="true" /><h1>Sign in required</h1><button className="primary-button" type="button" onClick={() => navigate("/login")}>Sign in</button></div>;
+}
+
+export default function App() {
+  const { path, navigate } = useLocation();
+  const [session, setSession] = useState(readSession);
+
+  function login(result) {
+    const nextSession = { token: result.token, customerId: result.customerId, customer: result.customer };
+    sessionStorage.setItem("shopkart.session", JSON.stringify(nextSession));
+    setSession(nextSession);
+  }
+
+  function logout() {
+    sessionStorage.removeItem("shopkart.session");
+    setSession(null);
+    navigate("/login");
+  }
+
+  let page;
+  const productMatch = path.match(/^\/product\/([^/]+)$/);
+  const orderMatch = path.match(/^\/orders\/(\d+)$/);
+  if (path === "/login") page = <LoginPage onLogin={login} navigate={navigate} />;
+  else if (productMatch) page = <ProductPage sku={decodeURIComponent(productMatch[1])} session={session} navigate={navigate} />;
+  else if (path === "/cart") page = <CartPage session={session} navigate={navigate} />;
+  else if (path === "/checkout") page = <CheckoutPage session={session} navigate={navigate} />;
+  else if (orderMatch) page = <OrderPage orderId={orderMatch[1]} session={session} navigate={navigate} />;
+  else page = <CatalogPage session={session} navigate={navigate} />;
+
+  return <AppShell session={session} onLogout={logout} navigate={navigate}>{page}</AppShell>;
+}

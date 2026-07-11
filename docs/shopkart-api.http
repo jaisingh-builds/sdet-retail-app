@@ -1,0 +1,69 @@
+@baseUrl = http://localhost:8080/api
+@alicePassword = {{$dotenv SHOPKART_ALICE_PASSWORD}}
+@bobPassword = {{$dotenv SHOPKART_BOB_PASSWORD}}
+
+### Health
+GET {{baseUrl}}/health
+
+### Product search
+GET {{baseUrl}}/products?q=bag
+
+### Alice login - copy token from response into aliceToken locally
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@shopkart.test",
+  "password": "{{alicePassword}}"
+}
+
+### Bob login - copy token from response into bobToken locally
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "bob@shopkart.test",
+  "password": "{{bobPassword}}"
+}
+
+### Create an open cart
+POST {{baseUrl}}/carts
+Authorization: Bearer {{aliceToken}}
+
+### Add two bags
+POST {{baseUrl}}/carts/{{cartId}}/items
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "sku": "SKU-BAG",
+  "qty": 2
+}
+
+### Place the order
+POST {{baseUrl}}/orders
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "cartId": {{cartId}},
+  "address": "UST Campus, Technopark, Trivandrum"
+}
+
+### Owner reads order - expected 200
+GET {{baseUrl}}/orders/{{orderId}}
+Authorization: Bearer {{aliceToken}}
+
+### Another customer reads order - expected 403
+GET {{baseUrl}}/orders/{{orderId}}
+Authorization: Bearer {{bobToken}}
+
+### Out-of-stock negative - expected 409
+POST {{baseUrl}}/carts/{{negativeCartId}}/items
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "sku": "SKU-CAP",
+  "qty": 1
+}
