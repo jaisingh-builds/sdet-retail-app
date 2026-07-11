@@ -72,11 +72,15 @@ export function resolveDatabaseConfiguration() {
 
 export function databaseEnvironmentDiagnostics() {
   const names = ["DB_DIALECT", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"];
+  const requiredNames = ["DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD"];
   const visibleValues = (environment) => Object.fromEntries(
     names
       .filter((name) => environment[name] !== undefined)
-      .map((name) => [name, name === "DB_PASSWORD" ? "<set; hidden>" : environment[name]])
+      .map((name) => [name, name === "DB_PASSWORD"
+        ? (environment[name]?.trim() ? "<set; hidden>" : "<empty>")
+        : environment[name]])
   );
+  const missingValues = (environment) => requiredNames.filter((name) => !environment[name]?.trim());
   const visibleUrl = (value) => {
     if (!value) return "absent";
     try {
@@ -92,8 +96,10 @@ export function databaseEnvironmentDiagnostics() {
     environmentFilePath,
     environmentFileExists: existsSync(environmentFilePath),
     processValues: visibleValues(process.env),
+    processMissingValues: missingValues(process.env),
     processDatabaseUrl: visibleUrl(process.env.DATABASE_URL),
     fileValues: visibleValues(fileEnvironment),
+    fileMissingValues: missingValues(fileEnvironment),
     fileDatabaseUrl: visibleUrl(fileEnvironment.DATABASE_URL)
   };
 }

@@ -116,8 +116,10 @@ function printDatabaseDiagnostics({ configurationSource, options, diagnostics })
   console.log(`  Environment file     : ${environment.environmentFilePath}`);
   console.log(`  Environment file exists: ${environment.environmentFileExists}`);
   console.log(`  Process DB values    : ${JSON.stringify(environment.processValues)}`);
+  console.log(`  Process DB_* missing : ${environment.processMissingValues.join(", ") || "none (complete candidate)"}`);
   console.log(`  Process DATABASE_URL : ${environment.processDatabaseUrl}`);
   console.log(`  .env DB values       : ${JSON.stringify(environment.fileValues)}`);
+  console.log(`  .env DB_* missing    : ${environment.fileMissingValues.join(", ") || "none (complete candidate)"}`);
   console.log(`  .env DATABASE_URL    : ${environment.fileDatabaseUrl}`);
   console.log(`  Requested target     : ${options.host}:${options.port}/${options.database}`);
   console.log(`  Connected server     : ${server.serverHostname}:${server.serverPort}`);

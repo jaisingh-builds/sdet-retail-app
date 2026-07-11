@@ -217,6 +217,24 @@ from the migration target, stop that process and run `npm start` again. On
 Windows, use `taskkill /PID <processId> /F`. ShopKart now refuses to start with a
 clear error when an older process is still occupying port 8080.
 
+For an independent, read-only diagnosis run:
+
+```bash
+npm run db:probe
+```
+
+This command does not migrate or update data. It reads the raw `.env` again and
+probes every complete candidate independently: process/IDE `DB_*`, process/IDE
+`DATABASE_URL`, raw `.env` `DB_*`, and raw `.env` `DATABASE_URL`. It prints the
+repository path, Git revision, Node executable, `.env` and source-file hashes,
+winning source, requested target, driver-selected database and server identity.
+Passwords remain hidden.
+
+- `WINNING target` wrong: configuration precedence or wrong terminal/IDE values.
+- Correct target but `Requested == selected: false`: driver/server anomaly.
+- Wrong repository, commit or source hashes: participant is running another copy.
+- Probe passes but checkout health target differs: an older app process is running.
+
 ## Seeded Public Data
 
 | Persona | Login identifier | Purpose |
@@ -259,6 +277,7 @@ The environment-specific changes from the original brief are recorded in
 | Command | Purpose |
 | --- | --- |
 | `npm run db:migrate` | Apply missing migrations and refresh secret-derived hashes |
+| `npm run db:probe` | Read-only comparison of every environment/database candidate |
 | `npm run db:reset` | Clear carts/orders and restore a clean scenario baseline |
 | `npm run build` | Build the production React UI |
 | `npm start` | Build and serve UI + API on port 8080 |

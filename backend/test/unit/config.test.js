@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { databaseFailureMessage, resolveDatabaseUrl } from "../../src/config.js";
+import { databaseEnvironmentDiagnostics, databaseFailureMessage, resolveDatabaseUrl } from "../../src/config.js";
 
 test("separate MySQL password supports @ and : without malformed URL parsing", () => {
   const previous = {
@@ -35,6 +35,16 @@ test("database diagnostics identify the target without printing the password", (
   const message = databaseFailureMessage({ code: "ER_ACCESS_DENIED_ERROR" }, url);
   assert.match(message, /db\.example\.test:3307\/shopkart/);
   assert.doesNotMatch(message, /Training|%40|123/);
+});
+
+test("environment diagnostics show useful values without exposing passwords", () => {
+  const previous = process.env.DB_PASSWORD;
+  process.env.DB_PASSWORD = "NeverPrintThis@123";
+  const output = JSON.stringify(databaseEnvironmentDiagnostics());
+  assert.doesNotMatch(output, /NeverPrintThis/);
+  assert.match(output, /<set; hidden>/);
+  if (previous === undefined) delete process.env.DB_PASSWORD;
+  else process.env.DB_PASSWORD = previous;
 });
 
 test("complete DB_* project configuration takes precedence over a stale DATABASE_URL", () => {
