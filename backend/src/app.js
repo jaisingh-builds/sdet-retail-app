@@ -134,6 +134,15 @@ export function createApp({ store, tokenSecret, apiDelayMs = 0, databaseTarget, 
     return res.json(cart);
   }));
 
+  app.post("/api/carts/:id/coupon", requireAuth, asyncRoute(async (req, res) => {
+    const cart = await store.applyCoupon(
+      positiveInteger(req.params.id, "cart id"),
+      req.customer.id,
+      req.body?.code
+    );
+    return res.json(cart);
+  }));
+
   app.post("/api/orders", requireAuth, asyncRoute(async (req, res) => {
     const order = await store.placeOrder(
       positiveInteger(req.body?.cartId, "cartId"),

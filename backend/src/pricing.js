@@ -8,3 +8,17 @@ export function cartTotalPaise(items) {
     0
   );
 }
+
+export function normalizeCouponCode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+export function couponDiscountPaise(subtotalPaise, couponCode) {
+  return normalizeCouponCode(couponCode) === "UST10"
+    ? Math.floor(Number(subtotalPaise) * 10 / 100)
+    : 0;
+}
+
+export function isSupportedCoupon(couponCode) {
+  return normalizeCouponCode(couponCode) === "UST10";
+}

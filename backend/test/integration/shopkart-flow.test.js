@@ -115,6 +115,25 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   assert.equal(cartUpdated.payload.totalPaise, 99800);
   assert.equal(cartUpdated.payload.items[0].lineTotalPaise, 99800);
 
+  const invalidCoupon = await jsonRequest(baseUrl, `/api/carts/${cartId}/coupon`, {
+    method: "POST",
+    token: aliceLogin.payload.token,
+    body: { code: "MADE-UP" }
+  });
+  assert.equal(invalidCoupon.response.status, 400);
+  assert.equal(invalidCoupon.payload.error.code, "INVALID_COUPON");
+
+  const discountedCart = await jsonRequest(baseUrl, `/api/carts/${cartId}/coupon`, {
+    method: "POST",
+    token: aliceLogin.payload.token,
+    body: { code: "ust10" }
+  });
+  assert.equal(discountedCart.response.status, 200);
+  assert.equal(discountedCart.payload.couponCode, "UST10");
+  assert.equal(discountedCart.payload.subtotalPaise, 99800);
+  assert.equal(discountedCart.payload.discountPaise, 9980);
+  assert.equal(discountedCart.payload.totalPaise, 89820);
+
   const forbiddenCart = await jsonRequest(baseUrl, `/api/carts/${cartId}`, {
     token: bobLogin.payload.token
   });
@@ -128,7 +147,10 @@ test("ShopKart supports the complete API, ownership, DB, and negative flow", asy
   });
   assert.equal(orderCreated.response.status, 201);
   assert.equal(orderCreated.payload.status, "PLACED");
-  assert.equal(orderCreated.payload.totalPaise, 99800);
+  assert.equal(orderCreated.payload.couponCode, "UST10");
+  assert.equal(orderCreated.payload.subtotalPaise, 99800);
+  assert.equal(orderCreated.payload.discountPaise, 9980);
+  assert.equal(orderCreated.payload.totalPaise, 89820);
   const orderId = orderCreated.payload.orderId;
 
   const orderRead = await jsonRequest(baseUrl, `/api/orders/${orderId}`, {
@@ -307,6 +329,15 @@ test("ShopKart runs the checkout lifecycle on PostgreSQL", async (t) => {
   assert.equal(updatedCart.response.status, 200);
   assert.equal(updatedCart.payload.totalPaise, 99800);
 
+  const discountedCart = await jsonRequest(baseUrl, `/api/carts/${cart.payload.cartId}/coupon`, {
+    method: "POST",
+    token: login.payload.token,
+    body: { code: "UST10" }
+  });
+  assert.equal(discountedCart.response.status, 200);
+  assert.equal(discountedCart.payload.discountPaise, 9980);
+  assert.equal(discountedCart.payload.totalPaise, 89820);
+
   const order = await jsonRequest(baseUrl, "/api/orders", {
     method: "POST",
     token: login.payload.token,
@@ -314,6 +345,8 @@ test("ShopKart runs the checkout lifecycle on PostgreSQL", async (t) => {
   });
   assert.equal(order.response.status, 201);
   assert.equal(order.payload.status, "PLACED");
+  assert.equal(order.payload.couponCode, "UST10");
+  assert.equal(order.payload.totalPaise, 89820);
   assert.equal(order.payload.orderId, 7001);
 
   const duplicate = await jsonRequest(baseUrl, "/api/orders", {

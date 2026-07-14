@@ -141,6 +141,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /carts/{id}/coupon:
+    post:
+      tags: [Carts]
+      summary: Apply a supported coupon to an owned, non-empty open cart
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyCouponRequest"
+      responses:
+        "200":
+          description: Updated cart with deterministic discount and total
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          description: Coupon is not supported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Cart is empty or no longer open
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /orders:
     post:
       tags: [Orders]
@@ -305,7 +338,7 @@ components:
         lineTotalPaise: { type: integer, minimum: 1 }
     Cart:
       type: object
-      required: [id, cartId, status, items, totalPaise]
+      required: [id, cartId, status, items, couponCode, subtotalPaise, discountPaise, totalPaise]
       properties:
         id: { type: integer, format: int64 }
         cartId: { type: integer, format: int64 }
@@ -314,6 +347,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CartItem"
+        couponCode: { type: string, nullable: true, example: UST10 }
+        subtotalPaise: { type: integer, minimum: 0 }
+        discountPaise: { type: integer, minimum: 0 }
         totalPaise: { type: integer, minimum: 0 }
     AddCartItemRequest:
       type: object
@@ -321,6 +357,11 @@ components:
       properties:
         sku: { type: string, example: SKU-BAG }
         qty: { type: integer, minimum: 1, example: 2 }
+    ApplyCouponRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 20, example: UST10 }
     CreateOrderRequest:
       type: object
       required: [cartId, address]
@@ -329,13 +370,16 @@ components:
         address: { type: string, minLength: 10, maxLength: 240 }
     Order:
       type: object
-      required: [id, orderId, customerId, cartId, status, totalPaise, address, createdAt, items]
+      required: [id, orderId, customerId, cartId, status, couponCode, subtotalPaise, discountPaise, totalPaise, address, createdAt, items]
       properties:
         id: { type: integer, format: int64 }
         orderId: { type: integer, format: int64 }
         customerId: { type: integer, format: int64 }
         cartId: { type: integer, format: int64 }
         status: { type: string, enum: [PLACED, CANCELLED] }
+        couponCode: { type: string, nullable: true, example: UST10 }
+        subtotalPaise: { type: integer, minimum: 1 }
+        discountPaise: { type: integer, minimum: 0 }
         totalPaise: { type: integer, minimum: 1 }
         address: { type: string }
         createdAt: { type: string, format: date-time }

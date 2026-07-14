@@ -107,6 +107,13 @@ input:focus, textarea:focus { border-color: var(--brand); outline: 3px solid rgb
 .action-row > button:not(.primary-button) { min-height: 40px; padding: 0 15px; border: 1px solid #c6d0d9; border-radius: 6px; background: white; font-weight: 800; }
 .checkout-form { max-width: 680px; margin: 0 auto; }
 .checkout-form textarea { margin: 8px 0 16px; resize: vertical; }
+.coupon-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin: 8px 0 16px; }
+.coupon-row button { min-height: 44px; padding: 0 16px; border: 1px solid #9ebdb8; border-radius: 6px; background: #e7f3f0; color: var(--brand-dark); font-weight: 800; }
+.coupon-row button:disabled { cursor: not-allowed; opacity: .55; }
+.checkout-totals { margin: 4px 0 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px; background: #f7faf9; }
+.checkout-totals div { display: flex; justify-content: space-between; gap: 20px; padding: 4px 0; }
+.checkout-totals div:last-child { margin-top: 4px; padding-top: 9px; border-top: 1px solid var(--line); font-weight: 850; }
+.checkout-totals dd { margin: 0; }
 .order-confirmation { text-align: center; }
 .order-confirmation > svg { color: var(--brand); }
 .order-confirmation dl { margin: 28px 0; border-top: 1px solid var(--line); }
@@ -145,6 +152,7 @@ input:focus, textarea:focus { border-color: var(--brand); outline: 3px solid rgb
 @media (max-width: 420px) {
   .search-form { grid-template-columns: auto minmax(0, 1fr); padding: 10px; }
   .search-form button { grid-column: 1 / -1; width: 100%; }
+  .coupon-row { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

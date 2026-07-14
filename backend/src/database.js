@@ -1,5 +1,11 @@
 import { createDatabasePool, databaseDialect } from "./database-client.js";
-import { cartTotalPaise, lineTotalPaise } from "./pricing.js";
+import {
+  cartTotalPaise,
+  couponDiscountPaise,
+  isSupportedCoupon,
+  lineTotalPaise,
+  normalizeCouponCode
+} from "./pricing.js";
 
 export class DomainError extends Error {
   constructor(status, code, message) {
@@ -98,7 +104,7 @@ export class ShopKartStore {
 
   async getCart(cartId, customerId) {
     const [cartRows] = await this.pool.execute(
-      "SELECT id, customer_id, status, created_at FROM carts WHERE id = ?",
+      "SELECT id, customer_id, status, coupon_code, created_at FROM carts WHERE id = ?",
       [cartId]
     );
     const cart = cartRows[0];
@@ -116,13 +122,37 @@ export class ShopKartStore {
       [cartId]
     );
     const items = itemRows.map(mapCartItem);
+    const subtotalPaise = cartTotalPaise(items);
+    const couponCode = cart.coupon_code || null;
+    const discountPaise = couponDiscountPaise(subtotalPaise, couponCode);
     return {
       id: Number(cart.id),
       cartId: Number(cart.id),
       status: cart.status,
       items,
-      totalPaise: cartTotalPaise(items)
+      couponCode,
+      subtotalPaise,
+      discountPaise,
+      totalPaise: subtotalPaise - discountPaise
     };
+  }
+
+  async applyCoupon(cartId, customerId, couponCode) {
+    const normalizedCode = normalizeCouponCode(couponCode);
+    if (!isSupportedCoupon(normalizedCode)) {
+      throw new DomainError(400, "INVALID_COUPON", "Coupon code is not valid");
+    }
+
+    const cart = await this.getCart(cartId, customerId);
+    if (cart.status !== "OPEN") {
+      throw new DomainError(409, "CART_NOT_OPEN", "Only an open cart can accept a coupon");
+    }
+    if (cart.items.length === 0) {
+      throw new DomainError(409, "EMPTY_CART", "Add an item before applying a coupon");
+    }
+
+    await this.pool.execute("UPDATE carts SET coupon_code = ? WHERE id = ?", [normalizedCode, cartId]);
+    return this.getCart(cartId, customerId);
   }
 
   async addCartItem(cartId, customerId, sku, quantity) {
@@ -135,7 +165,7 @@ export class ShopKartStore {
     try {
       await connection.beginTransaction();
       const [cartRows] = await connection.execute(
-        "SELECT id, customer_id, status FROM carts WHERE id = ? FOR UPDATE",
+        "SELECT id, customer_id, status, coupon_code FROM carts WHERE id = ? FOR UPDATE",
         [cartId]
       );
       const cart = cartRows[0];
@@ -199,7 +229,7 @@ export class ShopKartStore {
     try {
       await connection.beginTransaction();
       const [cartRows] = await connection.execute(
-        "SELECT id, customer_id, status FROM carts WHERE id = ? FOR UPDATE",
+        "SELECT id, customer_id, status, coupon_code FROM carts WHERE id = ? FOR UPDATE",
         [cartId]
       );
       const cart = cartRows[0];
@@ -223,12 +253,16 @@ export class ShopKartStore {
       if (items.length === 0) {
         throw new DomainError(409, "EMPTY_CART", "An empty cart cannot be ordered");
       }
-      const totalPaise = cartTotalPaise(items);
+      const subtotalPaise = cartTotalPaise(items);
+      const couponCode = cart.coupon_code || null;
+      const discountPaise = couponDiscountPaise(subtotalPaise, couponCode);
+      const totalPaise = subtotalPaise - discountPaise;
 
       const [orderResult] = await connection.execute(
-        `INSERT INTO orders (customer_id, cart_id, status, total_paise, address)
-         VALUES (?, ?, 'PLACED', ?, ?)${this.dialect === "postgresql" ? " RETURNING id" : ""}`,
-        [customerId, cartId, totalPaise, cleanAddress]
+        `INSERT INTO orders (
+           customer_id, cart_id, status, subtotal_paise, discount_paise, total_paise, coupon_code, address
+         ) VALUES (?, ?, 'PLACED', ?, ?, ?, ?, ?)${this.dialect === "postgresql" ? " RETURNING id" : ""}`,
+        [customerId, cartId, subtotalPaise, discountPaise, totalPaise, couponCode, cleanAddress]
       );
       const orderId = this.dialect === "postgresql" ? Number(orderResult[0].id) : Number(orderResult.insertId);
       for (const item of items) {
@@ -254,7 +288,8 @@ export class ShopKartStore {
 
   async getOrder(orderId, customerId) {
     const [orderRows] = await this.pool.execute(
-      `SELECT id, customer_id, cart_id, status, total_paise, address, created_at
+      `SELECT id, customer_id, cart_id, status, subtotal_paise, discount_paise,
+              total_paise, coupon_code, address, created_at
        FROM orders WHERE id = ?`,
       [orderId]
     );
@@ -277,6 +312,9 @@ export class ShopKartStore {
       customerId: Number(order.customer_id),
       cartId: Number(order.cart_id),
       status: order.status,
+      couponCode: order.coupon_code || null,
+      subtotalPaise: Number(order.subtotal_paise),
+      discountPaise: Number(order.discount_paise),
       totalPaise: Number(order.total_paise),
       address: order.address,
       createdAt: new Date(order.created_at).toISOString(),

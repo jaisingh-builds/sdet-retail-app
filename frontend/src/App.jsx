@@ -359,9 +359,39 @@ function CartPage({ session, navigate }) {
 
 function CheckoutPage({ session, navigate }) {
   const [address, setAddress] = useState("");
+  const [coupon, setCoupon] = useState("");
+  const [cart, setCart] = useState(null);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const cartId = session ? sessionStorage.getItem(cartStorageKey(session.customerId)) : null;
+
+  useEffect(() => {
+    if (!session || !cartId) return;
+    api(`/carts/${cartId}`, { token: session.token }).then(setCart).catch((requestError) => setError(requestError.message));
+  }, [cartId, session]);
+
   if (!session) return <RequireLogin navigate={navigate} />;
+
+  async function applyCoupon() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updatedCart = await api(`/carts/${cartId}/coupon`, {
+        method: "POST",
+        token: session.token,
+        body: { code: coupon }
+      });
+      setCart(updatedCart);
+      setCoupon(updatedCart.couponCode || "");
+      setNotice(`Coupon ${updatedCart.couponCode} applied`);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function placeOrder(event) {
     event.preventDefault();
@@ -369,12 +399,12 @@ function CheckoutPage({ session, navigate }) {
     setError("");
     try {
       const key = cartStorageKey(session.customerId);
-      const cartId = sessionStorage.getItem(key);
-      if (!cartId) throw new Error("Your cart is empty");
+      const activeCartId = sessionStorage.getItem(key);
+      if (!activeCartId) throw new Error("Your cart is empty");
       const order = await api("/orders", {
         method: "POST",
         token: session.token,
-        body: { cartId: Number(cartId), address }
+        body: { cartId: Number(activeCartId), address }
       });
       sessionStorage.removeItem(key);
       navigate(`/orders/${order.orderId}`);
@@ -392,6 +422,19 @@ function CheckoutPage({ session, navigate }) {
         <p>Confirm a delivery address, then place one deterministic order from your current cart.</p>
         <label htmlFor="address">Delivery address</label>
         <textarea id="address" name="address" minLength={10} maxLength={240} rows={5} value={address} onChange={(event) => setAddress(event.target.value)} required />
+        <label htmlFor="coupon">Coupon code</label>
+        <div className="coupon-row">
+          <input id="coupon" name="coupon" type="text" maxLength={20} value={coupon} onChange={(event) => setCoupon(event.target.value)} />
+          <button type="button" onClick={applyCoupon} disabled={busy || !cart}>Apply coupon</button>
+        </div>
+        {cart ? (
+          <dl className="checkout-totals">
+            <div><dt>Subtotal</dt><dd>{money(cart.subtotalPaise)}</dd></div>
+            <div><dt>Discount</dt><dd data-field="checkout-discount">-{money(cart.discountPaise)}</dd></div>
+            <div><dt>Total</dt><dd data-field="checkout-total">{money(cart.totalPaise)}</dd></div>
+          </dl>
+        ) : null}
+        {notice ? <div className="alert success" role="status">{notice}</div> : null}
         {error ? <div className="alert error" role="alert">{error}</div> : null}
         <button className="primary-button" type="submit" disabled={busy}>{busy ? "Placing order..." : "Place order"}</button>
       </form>
@@ -418,7 +461,10 @@ function OrderPage({ orderId, session, navigate }) {
         <h1>Order confirmed</h1>
         <dl>
           <div><dt>Status</dt><dd data-field="order-status">{order.status}</dd></div>
+          <div><dt>Subtotal</dt><dd>{money(order.subtotalPaise)}</dd></div>
+          <div><dt>Discount</dt><dd data-field="order-discount">-{money(order.discountPaise)}</dd></div>
           <div><dt>Total</dt><dd data-field="order-total">{money(order.totalPaise)}</dd></div>
+          {order.couponCode ? <div><dt>Coupon</dt><dd data-field="order-coupon">{order.couponCode}</dd></div> : null}
           <div><dt>Delivery address</dt><dd>{order.address}</dd></div>
         </dl>
         <button className="primary-button" type="button" onClick={() => navigate("/")}>Return to catalog</button>
